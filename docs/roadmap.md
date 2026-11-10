@@ -5,7 +5,7 @@ Each phase is sized for one working session and ends with an exit criterion that
 | Phase | Subject | Status |
 | --- | --- | --- |
 | 0 | Repository skeleton | Done |
-| 1 | Contracts and fixtures | Exit tests pass locally; Done once CI is green |
+| 1 | Contracts and fixtures | Done |
 | 2 | Independent validator | Next |
 | 3 | Rust geometry kernel | |
 | 4 | Contact candidates, Python prototype, solver contract | |
@@ -32,7 +32,7 @@ Cargo workspace with four crates, the `maxplus_solvers` package with its `_nativ
 
 **Exit:** all 16 fixtures and the synthetics load and validate against the schema. A test asserts that no fixture contains reference poses, tropical data or original piece ids, and that no piece is stored in its solved orientation.
 
-Implemented, with these decisions:
+Done, with these decisions:
 
 - The exit criterion is `tests/corpus/`. The testing rules that came out of this phase are in [CLAUDE.md](../CLAUDE.md#testing).
 - Committed fixtures are footprint (the `-flat` puzzles) and relief. The importer also builds tropical-aware instances, but none is committed until a solver for that regime exists.
