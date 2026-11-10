@@ -87,6 +87,49 @@ def test_the_validator_is_independent_of_the_rust_geometry() -> None:
     assert "validation.py" in names and "models.py" in names, "the import walk found nothing"
 
 
+def test_no_solver_reaches_the_validator() -> None:
+    """A search that consulted the validator would be checking its answer with its own oracle.
+
+    Neither a solver nor anything it imports from the package may import
+    ``validation``. Only ``api.solve`` brings the two together, after the search.
+    """
+    solver_sources = [p for p in package_sources() if "solvers" in p.relative_to(PACKAGE).parts]
+    assert any(p.name == "contact_dfs.py" for p in solver_sources), "found no solver"
+    seen: set[Path] = set()
+    queue = list(solver_sources)
+    while queue:
+        path = queue.pop()
+        if path in seen:
+            continue
+        seen.add(path)
+        assert path.name != "validation.py", "a solver reaches the validator"
+        # The package's __init__ re-exports the API; solvers import from the modules themselves.
+        queue.extend(p for p in in_package_imports(path) if p != PACKAGE / "__init__.py")
+    importers = [
+        path.relative_to(PACKAGE).as_posix()
+        for path in package_sources()
+        if any(module.startswith("maxplus_solvers.validation") for module in imported_modules(path))
+    ]
+    assert importers == ["api.py"]
+
+
+def test_solvers_are_registered_under_the_family_they_live_in() -> None:
+    """``python.*`` are the prototypes; every solver declares its regimes and its candidate set."""
+    from maxplus_solvers import solvers
+
+    assert solvers.available(), "nothing is registered"
+    for name in solvers.available():
+        spec = solvers.get(name)
+        family, _, algorithm = name.partition(".")
+        assert family and algorithm, name
+        assert spec.regimes and spec.candidate_set and spec.description, name
+        module = spec.run.__module__
+        if family == "python":
+            assert module == f"maxplus_solvers.solvers.prototypes.{algorithm}", name
+        contract = (ROOT / "docs" / "solver-contract.md").read_text(encoding="utf-8")
+        assert f"`{name}`" in contract and f"`{spec.candidate_set}`" in contract, name
+
+
 def test_importing_the_package_does_not_need_the_optional_extras() -> None:
     """Shapely is loaded by the validator only, so the solvers run without it."""
     code = (

@@ -16,6 +16,9 @@ dependencies = []
 # The independent solution validator. The solvers do not need it.
 validate = ["shapely>=2.0"]
 
+[project.scripts]
+maxplus-solve = "maxplus_solvers.cli:main"
+
 [project.urls]
 Repository = "https://github.com/maxpluslab/tiling-solvers"
 

@@ -6,7 +6,7 @@ package, not from ``_native``.
 """
 
 from maxplus_solvers import _native
-from maxplus_solvers.api import load_puzzle
+from maxplus_solvers.api import available_solvers, load_puzzle, solve
 from maxplus_solvers.models import (
     InstanceError,
     Piece,
@@ -36,5 +36,7 @@ __all__ = [
     "SolverConfig",
     "TolerancePolicy",
     "__version__",
+    "available_solvers",
     "load_puzzle",
+    "solve",
 ]

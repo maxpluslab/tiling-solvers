@@ -8,8 +8,8 @@ Each phase is sized for one working session and ends with an exit criterion that
 | 1 | Contracts and fixtures | Done |
 | 2 | Independent validator | Done |
 | 3 | Rust geometry kernel | Done |
-| 4 | Contact candidates, Python prototype, solver contract | Next |
-| 5 | Rust contact DFS | |
+| 4 | Contact candidates, Python prototype, solver contract | Done |
+| 5 | Rust contact DFS | Next |
 | 6 | CP-SAT backend | |
 | 7 | Benchmark and research platform | |
 
@@ -96,10 +96,23 @@ Done, with these decisions:
 
 **Exit:** `python.contact_dfs` solves the 6-piece and 9-piece flat fixtures, and every solution it returns passes the validator.
 
+Done, with these decisions:
+
+- The exit criterion is `tests/corpus/test_contact_dfs_solves.py`. The four small flat fixtures are solved, the searches are also run to their end, and every assembly returned passes the validator as an exact tiling.
+- The frontier is corners, not edges. The search branches on one convex corner of the uncovered region, the one with the fewest candidates, and a candidate puts a piece vertex at the corner with the edge leaving it flush against the corner's first side. [algorithms.md](algorithms.md) gives the argument that this loses no exact assembly of convex pieces. The corners are found from the directions each polygon occupies around a vertex; the uncovered region is never built as a polygon, so no general polygon library is needed.
+- The candidate interface is `_native.Assembly`: `frontier()`, `propose(corner)`, `check_placement(piece, pose)`, with `place` and `undo` as a stack. It lives in `tiling-geometry` (`contact`, `graph`, `assembly`).
+- The edge compatibility graph rules out nothing in the footprint regime: pieces need not meet edge to edge, so lengths prove nothing. With roofs it keeps only edge pairs whose slopes along the edge cancel, which removes more than half of all pairs on the corpus and keeps every contact in the answer keys. The same signatures identify congruent pieces and a piece's own symmetry, and proposals leave those repetitions out.
+- `candidates_proven_complete` stays `false`. The argument is about exact arithmetic and exact assemblies; the code is `f64` with tolerances, and the validator also accepts arrangements that are not exact.
+- `SolveResult` gained `candidate_set`, `config` and `solver_version`, and `Solution` gained `valid`. `no_solution_found` now requires an exhaustive search and `interrupted` forbids one. [solver-contract.md](solver-contract.md) is the reference.
+- `solve(..., validate=True)` runs the validator on what a solver returns. No solver calls it; an architecture test checks that.
+- Tests beyond the exit: the frontier against the corners of `target − union(placed)` from GEOS, `check_placement` against Shapely and the validator, `propose` against a brute-force enumeration with the test oracle, and in Rust a property over random tilings cut by chords that every convex corner is offered its true filler. Each was made to fail once by breaking the code.
+- Findings, relative to the candidates generated. The 6-piece and 9-piece footprint puzzles each have exactly one assembly, found in the tray's four orientations. `rat1-flat` (11 pieces) has 101; all pass the validator; the count is pinned by a test. The prototype does not finish the 16-piece footprint puzzles in 90 s and finds a first assembly of the 20-piece one in about 7 s.
+- For phase 5: by the corner argument, collinear-chain placements add no assemblies, since a piece lying against a run of shorter edges still has a vertex in a convex corner. They should be implemented only if measurements show the search needs them. What the measurements do ask for is pruning, and removing the tray's rotations.
+
 ## Phase 5: Rust contact DFS
 
 - `tiling-search::contact_dfs`: the whole search in Rust, one boundary crossing per solve. Time limit, `max_solutions`, seed, and counts of nodes, backtracks and candidates.
-- Collinear-chain placements: one long edge mating with a run of shorter collinear edges, with offsets taken from endpoint coincidences.
+- Collinear-chain placements: one long edge mating with a run of shorter collinear edges, with offsets taken from endpoint coincidences. (Phase 4 found these are not needed for completeness; see its decisions.)
 - Relief filtering: the tangential-gradient test before any polygon work, then roof heights at the ends of the contact.
 - Cavity pruning: reject a partial assembly that leaves an uncovered component no subset of the remaining pieces can fill, by area or by minimum width.
 - Symmetry: anchor the first placement to break the tray's rotations, and order geometrically identical pieces.

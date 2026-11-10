@@ -245,6 +245,331 @@ fn tangential_gradient_mismatch(
     ))
 }
 
+fn edge_parts(edge: tiling_geometry::EdgeRef) -> (Option<usize>, usize) {
+    match edge {
+        tiling_geometry::EdgeRef::Tray { edge } => (None, edge),
+        tiling_geometry::EdgeRef::Piece { piece, edge } => (Some(piece), edge),
+    }
+}
+
+fn edge_of(piece: Option<usize>, edge: usize) -> tiling_geometry::EdgeRef {
+    match piece {
+        None => tiling_geometry::EdgeRef::Tray { edge },
+        Some(piece) => tiling_geometry::EdgeRef::Piece { piece, edge },
+    }
+}
+
+/// A corner of the uncovered region: a free wedge at `(x, y)` that opens
+/// counter-clockwise from `direction` through `angle`.
+///
+/// The wedge's first side runs along an edge of the tray (`source_piece` is
+/// `None`) or of a placed piece. `convex` says the wedge is narrower than a
+/// half turn, which is what makes its proposals complete.
+#[pyclass(frozen, get_all, module = "maxplus_solvers._native")]
+struct Corner {
+    x: f64,
+    y: f64,
+    direction: f64,
+    angle: f64,
+    convex: bool,
+    source_piece: Option<usize>,
+    source_edge: usize,
+}
+
+#[pymethods]
+impl Corner {
+    fn __repr__(&self) -> String {
+        let source = match self.source_piece {
+            None => format!("tray edge {}", self.source_edge),
+            Some(piece) => format!("piece {piece} edge {}", self.source_edge),
+        };
+        format!(
+            "Corner(x={:?}, y={:?}, direction={:?}, angle={:?}, convex={}, source={source})",
+            self.x,
+            self.y,
+            self.direction,
+            self.angle,
+            if self.convex { "True" } else { "False" }
+        )
+    }
+}
+
+/// A placement that fills a corner and fits: piece `piece` at `(x, y, theta)`,
+/// its vertex `vertex` at the corner and the edge leaving that vertex flush
+/// against the contact edge (`contact_piece` is `None` for the tray).
+#[pyclass(frozen, get_all, module = "maxplus_solvers._native")]
+struct Candidate {
+    piece: usize,
+    x: f64,
+    y: f64,
+    theta: f64,
+    vertex: usize,
+    contact_piece: Option<usize>,
+    contact_edge: usize,
+}
+
+#[pymethods]
+impl Candidate {
+    /// The pose as `(x, y, theta)`.
+    #[getter]
+    fn pose(&self) -> PoseArg {
+        (self.x, self.y, self.theta)
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "Candidate(piece={}, x={:?}, y={:?}, theta={:?}, vertex={})",
+            self.piece, self.x, self.y, self.theta, self.vertex
+        )
+    }
+}
+
+/// What a placement would do: how far it reaches outside the target, how deep
+/// it enters a placed piece and which one, and whether both are within the
+/// assembly's length tolerance.
+#[pyclass(frozen, get_all, module = "maxplus_solvers._native")]
+struct PlacementCheck {
+    outside_mm: f64,
+    overlap_mm: f64,
+    blocker: Option<usize>,
+    fits: bool,
+}
+
+/// A reversible partial assembly and the candidate interface over it.
+///
+/// Pieces are local polygons, numbered as given. `roofs`, if present, gives one
+/// `(z0, gx, gy)` per piece. The tolerances say how close counts as coincident.
+#[pyclass(module = "maxplus_solvers._native")]
+struct Assembly {
+    inner: tiling_geometry::Assembly,
+}
+
+impl Assembly {
+    fn piece_index(&self, piece: usize) -> PyResult<usize> {
+        if piece < self.inner.piece_count() {
+            Ok(piece)
+        } else {
+            Err(PyValueError::new_err(format!("there is no piece {piece}")))
+        }
+    }
+
+    fn edge_index(&self, piece: usize, edge: usize) -> PyResult<usize> {
+        let count = self.inner.shape(self.piece_index(piece)?).polygon.len();
+        if edge < count {
+            Ok(edge)
+        } else {
+            Err(PyValueError::new_err(format!(
+                "piece {piece} has no edge {edge}"
+            )))
+        }
+    }
+
+    fn fixed_edge(&self, piece: Option<usize>, edge: usize) -> PyResult<tiling_geometry::EdgeRef> {
+        match piece {
+            None if edge < self.inner.target().len() => {}
+            None => {
+                return Err(PyValueError::new_err(format!(
+                    "the tray has no edge {edge}"
+                )));
+            }
+            Some(piece) => {
+                self.edge_index(piece, edge)?;
+            }
+        }
+        Ok(edge_of(piece, edge))
+    }
+}
+
+#[pymethods]
+impl Assembly {
+    #[new]
+    #[pyo3(signature = (target, pieces, roofs=None, *, length_tol, angle_tol, slope_tol))]
+    fn new(
+        target: Vec<[f64; 2]>,
+        pieces: Vec<Vec<[f64; 2]>>,
+        roofs: Option<Vec<RoofArg>>,
+        length_tol: f64,
+        angle_tol: f64,
+        slope_tol: f64,
+    ) -> PyResult<Assembly> {
+        if let Some(roofs) = &roofs {
+            if roofs.len() != pieces.len() {
+                return Err(PyValueError::new_err(format!(
+                    "{} roofs for {} pieces",
+                    roofs.len(),
+                    pieces.len()
+                )));
+            }
+        }
+        let shapes = pieces
+            .into_iter()
+            .enumerate()
+            .map(|(i, polygon)| tiling_geometry::Shape {
+                polygon,
+                roof: roofs.as_ref().map(|r| roof_of(r[i])),
+            })
+            .collect();
+        let tolerance = tiling_geometry::ContactTolerance {
+            length: length_tol,
+            angle: angle_tol,
+            slope: slope_tol,
+        };
+        tiling_geometry::Assembly::new(target, shapes, tolerance)
+            .map(|inner| Assembly { inner })
+            .map_err(|error| PyValueError::new_err(error.to_string()))
+    }
+
+    #[getter]
+    fn piece_count(&self) -> usize {
+        self.inner.piece_count()
+    }
+
+    /// Number of piece edges, the nodes of the compatibility graph besides the tray's.
+    #[getter]
+    fn edge_count(&self) -> usize {
+        self.inner.graph().edge_count()
+    }
+
+    /// Number of arcs between piece edges in the compatibility graph.
+    #[getter]
+    fn arc_count(&self) -> usize {
+        self.inner.graph().arc_count()
+    }
+
+    #[getter]
+    fn all_placed(&self) -> bool {
+        self.inner.all_placed()
+    }
+
+    /// Placed pieces, oldest first.
+    fn placed(&self) -> Vec<usize> {
+        self.inner.placed().to_vec()
+    }
+
+    /// The pose of a placed piece, or `None`.
+    fn pose(&self, piece: usize) -> PyResult<Option<PoseArg>> {
+        Ok(self
+            .inner
+            .pose(self.piece_index(piece)?)
+            .map(|p| (p.x, p.y, p.theta)))
+    }
+
+    /// For each piece, the lowest-numbered piece congruent to it, roof included.
+    fn classes(&self) -> Vec<usize> {
+        (0..self.inner.piece_count())
+            .map(|p| self.inner.graph().class(p))
+            .collect()
+    }
+
+    /// For each piece, how many rotations map it onto itself, roof included.
+    fn symmetry(&self) -> Vec<usize> {
+        (0..self.inner.piece_count())
+            .map(|p| self.inner.graph().symmetry(p))
+            .collect()
+    }
+
+    /// Whether edge `edge` of `piece` may lie flush against a fixed edge: an
+    /// edge of the tray (`fixed_piece` is `None`) or of another piece.
+    fn compatible(
+        &self,
+        fixed_piece: Option<usize>,
+        fixed_edge: usize,
+        piece: usize,
+        edge: usize,
+    ) -> PyResult<bool> {
+        let fixed = self.fixed_edge(fixed_piece, fixed_edge)?;
+        self.edge_index(piece, edge)?;
+        Ok(self.inner.graph().compatible(fixed, piece, edge))
+    }
+
+    /// Put a piece down. Whether it fits is `check_placement`'s question.
+    fn place(&mut self, piece: usize, pose: PoseArg) -> PyResult<()> {
+        self.inner
+            .place(piece, pose_of(pose))
+            .map_err(|error| PyValueError::new_err(error.to_string()))
+    }
+
+    /// Take back the most recent placement; returns the piece, or `None` if nothing is placed.
+    fn undo(&mut self) -> Option<usize> {
+        self.inner.undo()
+    }
+
+    /// Every corner of the uncovered region, in a fixed order. Empty exactly
+    /// when the placed pieces cover the target.
+    fn frontier(&self) -> Vec<Corner> {
+        let tolerance = *self.inner.tolerance();
+        self.inner
+            .frontier()
+            .into_iter()
+            .map(|c| {
+                let (source_piece, source_edge) = edge_parts(c.source);
+                Corner {
+                    x: c.vertex[0],
+                    y: c.vertex[1],
+                    direction: c.direction,
+                    angle: c.angle,
+                    convex: c.is_convex(&tolerance),
+                    source_piece,
+                    source_edge,
+                }
+            })
+            .collect()
+    }
+
+    /// The placements that fill a corner and fit, leaving out congruent twins
+    /// and symmetric repeats. Complete for a convex corner.
+    fn propose(&mut self, corner: PyRef<'_, Corner>) -> PyResult<Vec<Candidate>> {
+        let source = self.fixed_edge(corner.source_piece, corner.source_edge)?;
+        let corner = tiling_geometry::Corner {
+            vertex: [corner.x, corner.y],
+            direction: corner.direction,
+            angle: corner.angle,
+            source,
+        };
+        Ok(self
+            .inner
+            .propose(&corner)
+            .into_iter()
+            .map(|c| {
+                let (contact_piece, contact_edge) = edge_parts(c.contact);
+                Candidate {
+                    piece: c.piece,
+                    x: c.pose.x,
+                    y: c.pose.y,
+                    theta: c.pose.theta,
+                    vertex: c.vertex,
+                    contact_piece,
+                    contact_edge,
+                }
+            })
+            .collect())
+    }
+
+    /// Measure a placement against the target and the other placed pieces.
+    fn check_placement(&self, piece: usize, pose: PoseArg) -> PyResult<PlacementCheck> {
+        let check = self
+            .inner
+            .check_placement(piece, &pose_of(pose))
+            .map_err(|error| PyValueError::new_err(error.to_string()))?;
+        Ok(PlacementCheck {
+            outside_mm: check.outside,
+            overlap_mm: check.overlap,
+            blocker: check.blocker,
+            fits: check.fits(self.inner.tolerance()),
+        })
+    }
+
+    /// Candidate work so far as `(generated, rejected_outside, rejected_overlap)`.
+    fn stats(&self) -> (u64, u64, u64) {
+        let stats = self.inner.stats();
+        (
+            stats.generated,
+            stats.rejected_outside,
+            stats.rejected_overlap,
+        )
+    }
+}
+
 #[pymodule]
 fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(version, m)?)?;
@@ -265,5 +590,9 @@ fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(seam_mismatch, m)?)?;
     m.add_function(wrap_pyfunction!(tangential_gradient_mismatch, m)?)?;
     m.add_class::<EdgeSignature>()?;
+    m.add_class::<Corner>()?;
+    m.add_class::<Candidate>()?;
+    m.add_class::<PlacementCheck>()?;
+    m.add_class::<Assembly>()?;
     Ok(())
 }
