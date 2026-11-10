@@ -1,0 +1,15 @@
+[package]
+name = "tiling-search"
+description = "Custom search algorithms built on the shared geometry"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+tiling-core.workspace = true
+tiling-geometry.workspace = true
+
+[lints]
+workspace = true

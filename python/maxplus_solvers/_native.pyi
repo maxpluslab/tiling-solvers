@@ -1,0 +1,6 @@
+"""Type stubs for the Rust extension built from ``crates/tiling-py``."""
+
+from collections.abc import Sequence
+
+def version() -> str: ...
+def signed_area(polygon: Sequence[Sequence[float]]) -> float: ...

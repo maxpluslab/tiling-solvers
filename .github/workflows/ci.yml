@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Rust format
+        run: cargo fmt --all --check
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+      - name: Rust tests
+        run: cargo test --workspace --exclude tiling-py --locked
+
+      - name: Build extension and install Python dependencies
+        run: uv sync --locked
+
+      - name: Ruff
+        run: |
+          uv run ruff check
+          uv run ruff format --check
+
+      - name: Pyright
+        run: uv run pyright
+
+      - name: Python tests
+        run: uv run pytest

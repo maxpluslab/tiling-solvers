@@ -1,0 +1,11 @@
+[package]
+name = "tiling-core"
+description = "Shared domain types for the tiling solvers"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true

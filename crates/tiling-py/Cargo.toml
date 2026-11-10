@@ -1,0 +1,24 @@
+[package]
+name = "tiling-py"
+description = "PyO3 bindings for the tiling solvers. Bindings only: no algorithms live here"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lib]
+name = "_native"
+crate-type = ["cdylib"]
+doctest = false
+test = false
+
+[dependencies]
+tiling-core.workspace = true
+tiling-geometry.workspace = true
+tiling-search.workspace = true
+pyo3.workspace = true
+
+[lints]
+workspace = true

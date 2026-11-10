@@ -1,0 +1,57 @@
+[build-system]
+requires = ["maturin>=1.9,<2"]
+build-backend = "maturin"
+
+[project]
+name = "maxplus-solvers"
+version = "0.1.0"
+description = "A solver laboratory for geometric tiling puzzles: shared Rust geometry, interchangeable solvers, built-in benchmarking"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.11"
+dependencies = []
+
+[project.urls]
+Repository = "https://github.com/maxpluslab/tiling-solvers"
+
+[dependency-groups]
+dev = [
+    "maturin>=1.9,<2",
+    "pyright>=1.1.400",
+    "pytest>=8",
+    "ruff>=0.9",
+]
+
+[tool.maturin]
+python-source = "python"
+module-name = "maxplus_solvers._native"
+manifest-path = "crates/tiling-py/Cargo.toml"
+features = ["pyo3/extension-module"]
+
+[tool.uv]
+# Rebuild the native extension on `uv sync` / `uv run` when Rust sources change.
+cache-keys = [
+    { file = "pyproject.toml" },
+    { file = "Cargo.toml" },
+    { file = "Cargo.lock" },
+    { file = "crates/**/Cargo.toml" },
+    { file = "crates/**/*.rs" },
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--import-mode=importlib"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["python", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.pyright]
+include = ["python", "tests"]
+pythonVersion = "3.11"
+typeCheckingMode = "standard"
