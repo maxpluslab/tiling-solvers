@@ -7,7 +7,7 @@ Each phase is sized for one working session and ends with an exit criterion that
 | 0 | Repository skeleton | Done |
 | 1 | Contracts and fixtures | Done |
 | 2 | Independent validator | Done |
-| 3 | Rust geometry kernel | Exit tests pass locally; Done once CI is green |
+| 3 | Rust geometry kernel | Done |
 | 4 | Contact candidates, Python prototype, solver contract | Next |
 | 5 | Rust contact DFS | |
 | 6 | CP-SAT backend | |
@@ -74,7 +74,7 @@ Done, with these decisions:
 
 **Exit:** differential tests agree with the Shapely validator on random poses of fixture pieces, within a stated tolerance.
 
-Decisions:
+Done, with these decisions:
 
 - The exit criterion is `tests/corpus/test_native_agrees_with_validator.py`. For every fixture, pieces are thrown at seeded random poses and each quantity is computed twice, by `_native` and by the validator, Shapely or the Python models. The tolerances are 1e-9 mm for lengths (penetration depth, outside depth, roof heights) and 1e-6 mm² for areas. Whole assemblies, keyed and disturbed by 0.01 mm to a few millimetres, give the same overlap and outside residuals by both routes.
 - The same comparisons run on random convex polygons in `tests/property/test_native_properties.py`, and the kernel has its own proptest properties beside the code.
