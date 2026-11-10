@@ -7,8 +7,8 @@ Each phase is sized for one working session and ends with an exit criterion that
 | 0 | Repository skeleton | Done |
 | 1 | Contracts and fixtures | Done |
 | 2 | Independent validator | Done |
-| 3 | Rust geometry kernel | Next |
-| 4 | Contact candidates, Python prototype, solver contract | |
+| 3 | Rust geometry kernel | Exit tests pass locally; Done once CI is green |
+| 4 | Contact candidates, Python prototype, solver contract | Next |
 | 5 | Rust contact DFS | |
 | 6 | CP-SAT backend | |
 | 7 | Benchmark and research platform | |
@@ -73,6 +73,16 @@ Done, with these decisions:
 - Decide here whether `geo` earns a place or the convex routines suffice.
 
 **Exit:** differential tests agree with the Shapely validator on random poses of fixture pieces, within a stated tolerance.
+
+Decisions:
+
+- The exit criterion is `tests/corpus/test_native_agrees_with_validator.py`. For every fixture, pieces are thrown at seeded random poses and each quantity is computed twice, by `_native` and by the validator, Shapely or the Python models. The tolerances are 1e-9 mm for lengths (penetration depth, outside depth, roof heights) and 1e-6 mm² for areas. Whole assemblies, keyed and disturbed by 0.01 mm to a few millimetres, give the same overlap and outside residuals by both routes.
+- The same comparisons run on random convex polygons in `tests/property/test_native_properties.py`, and the kernel has its own proptest properties beside the code.
+- The tests were made to fail once by hand: with the browser's shared-extent formula in place of the separating distance, and with one clipping edge dropped. Both turned the differential tests red.
+- `geo` is not added. Everything in this phase is a convex routine of a few lines, the corpus targets are convex, and GEOS through Shapely already serves as the independent cross-check. General polygon operations (unions, non-convex free regions) have no user yet; the question reopens with the first solver that needs one.
+- Edge signatures carry the roof's slope along the edge and along its outward normal, not a gradient vector: both numbers are unchanged by a rigid motion, so signatures can be compared before any pose exists.
+- What is not here: finding which edges of two placed pieces are shared. The kernel measures the roof step along a given segment; choosing the segments is contact matching, in phase 4. The differential roof test therefore uses the edges two pieces share end to end, which is a subset of the seams the validator examines.
+- `_native` takes polygons as sequences of pairs, poses as `(x, y, theta)` and roofs as `(z0, gx, gy)`. These are prototype-facing primitives; a production solver receives the whole instance once.
 
 ## Phase 4: contact candidates, Python prototype, solver contract
 

@@ -15,6 +15,7 @@ uv sync                                   # create .venv, build the Rust extensi
 uv run pytest                             # all Python tests
 uv run pytest tests/unit/test_native.py::test_version_matches_the_package
 uv run pytest tests/corpus                # every committed fixture and its answer key
+uv run pytest tests/corpus/test_native_agrees_with_validator.py   # Rust geometry against the validator
 uv run pytest -m "not source"             # without the tropical-puzzle-lab checkout
 HYPOTHESIS_PROFILE=ci uv run pytest       # the derandomized, larger property runs CI uses
 uv run ruff check && uv run ruff format --check
@@ -34,10 +35,10 @@ uv run python scripts/import_fixtures.py --source ../tropical-puzzle-lab --check
 ## Architecture
 
 - `crates/tiling-core`: domain types. No dependencies on the other crates.
-- `crates/tiling-geometry`: convex geometry, contact matching, candidate generation. Depends on core.
+- `crates/tiling-geometry`: convex geometry, contact matching, candidate generation. Depends on core. Primitives take `&[Vec2]`; proptest strategies shared by its tests are in `src/testing.rs`.
 - `crates/tiling-search`: custom solvers, one module each. Depends on core and geometry.
 - `crates/tiling-py`: PyO3 bindings, built by maturin as `maxplus_solvers._native`. Converts types and forwards calls; no algorithms.
-- `python/maxplus_solvers`: the user-facing package: models, importers, solver adapters, validation, experiments. When a function is added to `_native`, add it to `_native.pyi` too.
+- `python/maxplus_solvers`: the user-facing package: models, importers, solver adapters, validation, experiments. When a function is added to `_native`, add it to `_native.pyi` too. `_native` takes a polygon as a sequence of pairs, a pose as `(x, y, theta)` and a roof as `(z0, gx, gy)`.
   - `models.py` holds the contracts; `schemas/instance-v1.json` is their JSON form and `tiling-core` mirrors the instance types. Change all three together.
   - `sanitize.py` is the only way an answer-bearing puzzle becomes an instance. `io/tropical.py` and `synthetic.py` both go through it.
   - `validation.py` is the completion check, on Shapely (the `validate` extra). Importing the package must not load Shapely; only this module does.
@@ -63,7 +64,7 @@ Rules:
 
 - **Expected values come from somewhere else.** Work them out by hand and say how in a comment, or use `tests/support/geometry.py`, the Shapely validator, or the answer keys. A test that computes its expectation with the code under test checks nothing. Pinned regression values are allowed only where no oracle exists (seeded randomness) and must be labelled as such.
 - **Every check has a test that makes it fail.** A validator rule, a schema constraint or a leak guard is not done until a deliberately broken input is refused. When adding a guard, break the thing by hand once and watch the test go red.
-- **New geometry gets a property test,** in proptest for Rust and Hypothesis for Python. From phase 3, Rust geometry is also tested differentially against the Shapely validator.
+- **New geometry gets a property test,** in proptest for Rust and Hypothesis for Python. Rust geometry that reaches `_native` is also tested differentially against Shapely or the validator, in `tests/property/test_native_properties.py` and `tests/corpus/test_native_agrees_with_validator.py`: lengths to 1e-9 mm, areas to 1e-6 mm².
 - **Every numeric comparison states its tolerance:** `pytest.approx(x, abs=1e-9)`, never a bare `approx` or `==` on computed floats.
 - **Tests are deterministic.** Randomness is seeded; nothing asserts on wall-clock time. The Hypothesis `ci` profile is derandomized so a CI failure reproduces locally.
 - **Nothing is skipped in CI.** Warnings are errors, `xfail` is strict, and unknown markers are rejected. Only `source`-marked tests may skip, and only on a machine without the tropical-puzzle-lab checkout; in CI a missing checkout is a failure.

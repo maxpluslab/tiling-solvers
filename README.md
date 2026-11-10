@@ -14,7 +14,7 @@ Python owns orchestration and analysis. Rust owns the geometry and the search.
 
 ## Status
 
-**Contracts and fixtures.** The instance format, the sanitizing importer and the benchmark corpus exist: 16 puzzles from Tropical Puzzle Lab and 4 synthetic ones with known solution counts, each with an answer key that only tests read. An independent validator checks an assembly against the browser player's completion rules. No solver exists yet. The work is laid out in [docs/roadmap.md](docs/roadmap.md), and the design in [docs/architecture.md](docs/architecture.md).
+**Contracts and fixtures.** The instance format, the sanitizing importer and the benchmark corpus exist: 16 puzzles from Tropical Puzzle Lab and 4 synthetic ones with known solution counts, each with an answer key that only tests read. An independent validator checks an assembly against the browser player's completion rules. The Rust geometry kernel (separating-axis depth, convex clipping, containment, edge signatures, roof continuity) is in place and agrees with the validator on random poses of every fixture's pieces. No solver exists yet. The work is laid out in [docs/roadmap.md](docs/roadmap.md), and the design in [docs/architecture.md](docs/architecture.md).
 
 ```python
 from maxplus_solvers import load_puzzle
