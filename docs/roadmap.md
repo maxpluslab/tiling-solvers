@@ -8,7 +8,7 @@ Each phase is sized for one working session and ends with an exit criterion that
 | 1 | Contracts and fixtures | Done |
 | 2 | Independent validator | Done |
 | 3 | Rust geometry kernel | Done |
-| 4 | Contact candidates, Python prototype, solver contract | Exit tests pass locally; Done once CI is green |
+| 4 | Contact candidates, Python prototype, solver contract | Done |
 | 5 | Rust contact DFS | Next |
 | 6 | CP-SAT backend | |
 | 7 | Benchmark and research platform | |
@@ -96,7 +96,7 @@ Done, with these decisions:
 
 **Exit:** `python.contact_dfs` solves the 6-piece and 9-piece flat fixtures, and every solution it returns passes the validator.
 
-Decisions:
+Done, with these decisions:
 
 - The exit criterion is `tests/corpus/test_contact_dfs_solves.py`. The four small flat fixtures are solved, the searches are also run to their end, and every assembly returned passes the validator as an exact tiling.
 - The frontier is corners, not edges. The search branches on one convex corner of the uncovered region, the one with the fewest candidates, and a candidate puts a piece vertex at the corner with the edge leaving it flush against the corner's first side. [algorithms.md](algorithms.md) gives the argument that this loses no exact assembly of convex pieces. The corners are found from the directions each polygon occupies around a vertex; the uncovered region is never built as a polygon, so no general polygon library is needed.
