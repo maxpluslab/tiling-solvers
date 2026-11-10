@@ -2,6 +2,8 @@
 
 This is the charter for the repository: what it is for, how it is layered, and the decisions that are fixed. The order of work is in [roadmap.md](roadmap.md).
 
+The algorithmic background is the [research brief](research-brief.md): problem taxonomy, solver families, tolerance models, tropical-specific constraints and the literature. Where the two differ, this document decides. The brief sketches a pure-Python `solver/` package with Shapely in the search path; here the search and its geometry are in Rust, and Shapely is confined to the independent validator.
+
 ## Purpose
 
 A solver laboratory, not a single solver. It should be easy to:
@@ -106,6 +108,10 @@ An instance is therefore built by rotating each piece by a seeded random angle (
 | Contact | Edge signatures, possible mates, antiparallel alignment, collinear interval overlap, partial-edge contact, candidate transforms |
 | Relief | Roof height matching at edge endpoints, tangential gradient agreement, continuity checks |
 | Solution checking | Whole-assembly overlap, uncovered target area, boundary error, maximum roof mismatch |
+
+Two facts make relief checks cheap and exact in form. Roofs are affine, so the height difference of two roofs along a shared straight segment is affine and its maximum lies at an endpoint: comparing endpoint heights bounds the mismatch on the whole segment. And two roofs that agree along an edge with tangent v satisfy (g₁ − g₂) · v = 0. Requiring equal gradients would be wrong, because ridges and valleys are where they differ.
+
+Candidate placements come from contacts, never from an angular grid: aligning a piece edge antiparallel to a fixed edge sets the rotation, and an endpoint coincidence sets the translation. The sources, in the order they are implemented, are tray edges, exposed piece edges, collinear chains of edges, and vertex contacts as a rescue. Whether these are complete for the generator's subdivisions is an open question, and results must say so.
 
 Numbers are `f64` with explicit tolerances and property tests. Exact or adaptive predicates can follow if experiments expose problems. A floating-point implementation is not a guarantee of mathematical exactness and results must not be described as one.
 

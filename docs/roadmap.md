@@ -1,6 +1,6 @@
 # Roadmap
 
-Each phase is sized for one working session and ends with an exit criterion that can be checked. Do them in order; each builds on the one before. The design behind them is in [architecture.md](architecture.md).
+Each phase is sized for one working session and ends with an exit criterion that can be checked. Do them in order; each builds on the one before. The design behind them is in [architecture.md](architecture.md), and the algorithmic background in the [research brief](research-brief.md).
 
 | Phase | Subject | Status |
 | --- | --- | --- |
@@ -47,7 +47,8 @@ Cargo workspace with four crates, the `maxplus_solvers` package with its `_nativ
 
 ## Phase 3: Rust geometry kernel
 
-- In `tiling-geometry`: a convex polygon type, rigid transforms, SAT penetration depth, convex clipping and intersection area, containment and outside depth, edge extraction, and edge signatures (length, adjacent angles, roof heights at the ends).
+- In `tiling-geometry`: a convex polygon type, rigid transforms, SAT penetration depth, convex clipping and intersection area, containment and outside depth, edge extraction, and edge signatures (length, adjacent corner angles, roof heights at the ends, roof gradient).
+- Relief primitives. Both roofs are affine, so along a shared straight segment the height difference is affine too: its maximum is at an endpoint, and comparing the two endpoint heights bounds the mismatch on the whole segment. Equivalently, the gradient difference must be normal to the edge, `(g1 − g2) · v = 0`; the gradients themselves need not be equal, since a ridge or valley is exactly where they differ.
 - Property tests with proptest.
 - Exposed through `_native` with stubs in `_native.pyi`.
 - Decide here whether `geo` earns a place or the convex routines suffice.
@@ -56,8 +57,9 @@ Cargo workspace with four crates, the `maxplus_solvers` package with its `_nativ
 
 ## Phase 4: contact candidates, Python prototype, solver contract
 
-- Candidate API in Rust: `propose(state, frontier)` and `check_placement(state, pose)`. A contact is a pair of antiparallel flush edges with aligned endpoints, against a tray wall or a placed piece.
-- `solvers/prototypes/contact_dfs.py`: integer indices, reversible state, deterministic iteration, geometry through `_native`. Footprint regime first.
+- Candidate API in Rust: `propose(state, frontier)` and `check_placement(state, pose)`. A contact is a pair of antiparallel flush edges with a coinciding endpoint, which fixes the rotation and both translation components without any angular grid. Two sources in this phase: tray-edge placements and piece-edge placements.
+- An edge compatibility graph over oriented piece and tray edges, built once from the signatures; rigid transforms are generated lazily from its arcs.
+- `solvers/prototypes/contact_dfs.py`: integer indices, reversible state, deterministic iteration, geometry through `_native`. Footprint regime first. The frontier rule is minimum remaining values: branch on the exposed edge with the fewest legal mates.
 - `api.solve()`, the solver registry, the metrics record, and a `maxplus-solve` command.
 - `docs/algorithms.md`: the frontier rule and the argument that it loses no solutions, or a plain statement that it is heuristic.
 - `docs/solver-contract.md`: status values and what each completeness claim means.
@@ -67,7 +69,10 @@ Cargo workspace with four crates, the `maxplus_solvers` package with its `_nativ
 ## Phase 5: Rust contact DFS
 
 - `tiling-search::contact_dfs`: the whole search in Rust, one boundary crossing per solve. Time limit, `max_solutions`, seed, and counts of nodes, backtracks and candidates.
-- Relief filtering: roof heights must agree at the ends of a contact.
+- Collinear-chain placements: one long edge mating with a run of shorter collinear edges, with offsets taken from endpoint coincidences.
+- Relief filtering: the tangential-gradient test before any polygon work, then roof heights at the ends of the contact.
+- Cavity pruning: reject a partial assembly that leaves an uncovered component no subset of the remaining pieces can fill, by area or by minimum width.
+- Symmetry: anchor the first placement to break the tray's rotations, and order geometrically identical pieces.
 - Canonical solution form: identical pieces are interchangeable, and assemblies equal up to a rotation of the tray count once.
 - Registered as `rust.contact_dfs`.
 
@@ -85,7 +90,9 @@ Cargo workspace with four crates, the `maxplus_solvers` package with its `_nativ
 ## Phase 7: benchmark and research platform
 
 - `benchmarks/manifests/` and `experiments/benchmark.py`, writing JSONL with solver version, input hash, seed, tolerances and configuration.
-- Tolerance sweeps; relief against flat for the same footprints; search effort against the Leinster–Cobbold difficulty rating in the source `puzzles/index.json`.
+- The factorial experiment the brief singles out: flat against relief × tolerance × search heuristic × puzzle family, with ambiguity and uniqueness measured explicitly.
+- Tolerance as a two-dimensional grid, pose and penetration tolerance against roof-height tolerance, spaced geometrically near any apparent transition. Time to first solution and time to exhaust are expected to move in opposite directions as tolerance widens; test that.
+- Difficulty proxies per instance: compatible-edge degree, fraction of edges with a unique mate, contradiction depth, symmetry count, geometry checks per node. Compare them, and node counts under several fixed heuristics, with the Leinster–Cobbold rating in the source `puzzles/index.json`.
 - `experiments/plotting.py` and a first notebook (optional extra `analysis`).
 
 **Exit:** one command reproduces a results table for the whole corpus across all registered solvers.
@@ -94,9 +101,13 @@ Cargo workspace with four crates, the `maxplus_solvers` package with its `_nativ
 
 Unordered, to be scheduled once phase 7 shows where the interesting questions are:
 
+- a proof, for the subdivisions the generator produces, that contact-generated placements are complete, which is what would turn "no solution found" into a real claim;
+- vertex-contact rescue placements, for assemblies that no full edge match can extend;
+- nogood learning and memoization of partial states by canonical contact graph;
 - branch and bound in `tiling-search`;
-- tolerance-aware search with continuous refinement of poses;
-- a solver for the tropical-aware regime;
+- tolerance-aware search with continuous refinement of poses, including loop-closure checks on relative transforms;
+- a solver for the tropical-aware regime, and tropical pruning beyond roof continuity (balancing conditions, admissible gradient sequences), experimental until proved;
 - exact or adaptive geometric predicates;
-- Z3 or exact-cover backends;
+- Z3, DLX exact-cover and MILP soft-mismatch backends;
+- comparison with human solve times from the browser player's report lines;
 - exporting results in a form the browser player can import.

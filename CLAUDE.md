@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-A solver laboratory for geometric tiling puzzles: shared Rust geometry, interchangeable solvers behind one `solve()` contract, independent validation, and benchmarking. The design is in `docs/architecture.md`. Work proceeds one phase at a time from `docs/roadmap.md`; read the phase before starting it and tick it off when its exit criterion is met. Everything committed here is public.
+A solver laboratory for geometric tiling puzzles: shared Rust geometry, interchangeable solvers behind one `solve()` contract, independent validation, and benchmarking. The design is in `docs/architecture.md`; the algorithmic background and literature are in the research brief, `docs/research-brief.md`, and where they differ the architecture document decides. Work proceeds one phase at a time from `docs/roadmap.md`; read the phase before starting it and tick it off when its exit criterion is met. Everything committed here is public.
 
 The puzzles come from the sibling repository `maxpluslab/tropical-puzzle-lab` (usually cloned at `../tropical-puzzle-lab`). Its `docs/puzzle-format.md` and `docs/puzzle-rules.md` define the source format and the completion rules, and `web/src/geometry/evaluate.ts` is the reference implementation of those rules. The puzzle generator stays there; never move it here.
 
