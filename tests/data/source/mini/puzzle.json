@@ -1,0 +1,35 @@
+{
+  "formatVersion": 1,
+  "id": "mini",
+  "revision": 1,
+  "name": "Mini",
+  "description": "Hand-made three-piece puzzle in the source format, for importer tests.",
+  "variant": "relief",
+  "geometry": {
+    "model": "planar",
+    "units": "mm",
+    "spanMm": 12.0,
+    "target": {"type": "polygon", "vertices": [[-6.0, -6.0], [6.0, -6.0], [6.0, 6.0], [-6.0, 6.0]]},
+    "reliefMm": 6.0,
+    "minThicknessMm": 4.0,
+    "trayRimMm": 2.0
+  },
+  "pieces": [
+    {"id": "Ab", "polygon": [[3.0, -6.0], [3.0, 6.0], [-3.0, 6.0], [-3.0, -6.0]], "roof": {"z0": 8.5, "gx": 0.5, "gy": 0.0}},
+    {"id": "Ac", "polygon": [[-4.0, -4.0], [2.0, -4.0], [2.0, 8.0]], "roof": {"z0": 7.0, "gx": -1.0, "gy": 0.25}},
+    {"id": "Bd", "polygon": [[-2.0, -8.0], [4.0, 4.0], [-2.0, 4.0]], "roof": {"z0": 9.0, "gx": -0.5, "gy": 0.0}}
+  ],
+  "reference": {
+    "poses": [
+      {"id": "Ab", "x": -3.0, "y": 0.0, "theta": 0.0},
+      {"id": "Ac", "x": 4.0, "y": -2.0, "theta": 0.0},
+      {"id": "Bd", "x": 2.0, "y": 2.0, "theta": 0.0}
+    ]
+  },
+  "rules": {"translate": true, "rotate": "continuous-z", "flip": false, "snap": false},
+  "validation": {"contactNoise": 1e-06, "overlapDepth": 0.006, "outsideDepth": 0.006, "areaError": 0.012, "roofMismatch": 0.05, "edgeAngleDeg": 3, "edgeMinOverlap": 0.02},
+  "scramble": {"algorithm": "v1", "defaultSeed": 7},
+  "provenance": {"recipe": "tests/data/source/mini", "recipeHash": "none", "generator": "by hand", "source": {}, "notes": ["Not a tropical construction; the ids only imitate one."]},
+  "tropical": {"convention": "max", "domain": "1", "xyMmPerUnit": "6", "numerator": [{"id": "A", "a": 0, "b": 0, "c": "0"}, {"id": "B", "a": 0, "b": 0, "c": "0"}], "denominator": [{"id": "b", "a": 0, "b": 0, "c": "0"}, {"id": "c", "a": 0, "b": 0, "c": "0"}, {"id": "d", "a": 0, "b": 0, "c": "0"}]},
+  "geometryHash": "mini-geometry-hash"
+}

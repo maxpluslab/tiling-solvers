@@ -1,0 +1,40 @@
+{
+  "instanceId": "syn-four-squares",
+  "instanceHash": "a443584d39be773e3ef4ee148dc03c993f4c52d4ffb57c77fc3b98599bc62b8c",
+  "sanitizer": {
+    "version": 1,
+    "seed": 20261109
+  },
+  "poses": {
+    "p00": {
+      "x": -36.0,
+      "y": -36.0,
+      "theta": 0.22709734641074242
+    },
+    "p01": {
+      "x": 36.0,
+      "y": 36.0,
+      "theta": 2.2114546819527057
+    },
+    "p02": {
+      "x": 36.0,
+      "y": -36.0,
+      "theta": -1.0350560560688218
+    },
+    "p03": {
+      "x": -36.0,
+      "y": 36.0,
+      "theta": 2.5190481796402024
+    }
+  },
+  "sourceIds": {
+    "p00": "sw",
+    "p01": "ne",
+    "p02": "se",
+    "p03": "nw"
+  },
+  "solutionCount": {
+    "canonical": 1,
+    "assemblies": 1
+  }
+}

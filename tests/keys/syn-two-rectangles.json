@@ -1,0 +1,28 @@
+{
+  "instanceId": "syn-two-rectangles",
+  "instanceHash": "ffecb5781f161df1f3671fe9abcbfa4ac517e7c3a8e7f426e64f1dc76ef5fb8c",
+  "sanitizer": {
+    "version": 1,
+    "seed": 20261109
+  },
+  "poses": {
+    "p00": {
+      "x": -48.0,
+      "y": 0.0,
+      "theta": -0.7516307488929007
+    },
+    "p01": {
+      "x": 24.0,
+      "y": 0.0,
+      "theta": 2.4325264914113878
+    }
+  },
+  "sourceIds": {
+    "p00": "narrow",
+    "p01": "wide"
+  },
+  "solutionCount": {
+    "canonical": 1,
+    "assemblies": 4
+  }
+}

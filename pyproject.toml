@@ -17,6 +17,8 @@ Repository = "https://github.com/maxpluslab/tiling-solvers"
 
 [dependency-groups]
 dev = [
+    "hypothesis>=6.100",
+    "jsonschema>=4.20",
     "maturin>=1.9,<2",
     "pyright>=1.1.400",
     "pytest>=8",
@@ -41,17 +43,28 @@ cache-keys = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--import-mode=importlib"
+# `tests` is on the path so suites can import the shared helpers as `support`.
+pythonpath = ["tests"]
+addopts = "--import-mode=importlib --strict-markers --strict-config -ra"
+xfail_strict = true
+filterwarnings = ["error"]
+markers = [
+    "source: needs a checkout of tropical-puzzle-lab (skipped locally if absent, required in CI)",
+    "slow: takes more than a few seconds",
+]
 
 [tool.ruff]
 line-length = 100
 target-version = "py311"
-src = ["python", "tests"]
+src = ["python", "tests", "scripts"]
+# CI checks the source corpus out inside the workspace.
+extend-exclude = ["tropical-puzzle-lab"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
 
 [tool.pyright]
-include = ["python", "tests"]
+include = ["python", "tests", "scripts"]
+extraPaths = ["tests"]
 pythonVersion = "3.11"
 typeCheckingMode = "standard"
