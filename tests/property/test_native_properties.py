@@ -9,7 +9,7 @@ import math
 from typing import Any
 
 import shapely
-from hypothesis import assume, given
+from hypothesis import assume, example, given
 from hypothesis import strategies as st
 
 from maxplus_solvers import _native
@@ -70,7 +70,23 @@ def test_intersection_area_agrees_with_shapely(
     )
 
 
+# Found by CI on Linux. The two results are the same triangle to one unit in the
+# last place, and GEOS 3.14 reports that such a pair shares no area at all. So the
+# two polygons are compared by distance and by area, never by overlaying them.
+ONE_ULP_APART: Polygon = [
+    (5.000000000000001, -5.921189464667502e-16),
+    (-2.4999999999999987, 4.1948105495808745),
+    (-2.5000000000000018, -4.1948105495808745),
+]
+
+
 @given(convex_polygons(), convex_polygons(), near, near)
+@example(
+    a=ONE_ULP_APART,
+    b=ONE_ULP_APART,
+    pose_a={"x": 0.865457123523327, "y": 3.0, "theta": 0.0},
+    pose_b={"x": 0.0, "y": 0.0, "theta": 0.0},
+)
 def test_the_intersection_polygon_is_shapelys(
     a: Polygon, b: Polygon, pose_a: Any, pose_b: Any
 ) -> None:
@@ -78,8 +94,9 @@ def test_the_intersection_polygon_is_shapelys(
     expected = shapely.Polygon(pa).intersection(shapely.Polygon(pb))
     assume(expected.area > 1.0)
     shared = shapely.Polygon(_native.intersection(pa, pb))
-    assert shared.symmetric_difference(expected).area <= AREA_TOL
-    assert shapely.hausdorff_distance(shared, expected) <= 1e-6
+    assert shapely.hausdorff_distance(shared, expected) <= LENGTH_TOL
+    assert math.isclose(shared.area, expected.area, abs_tol=AREA_TOL)
+    assert geometry.area(_native.intersection(pa, pb)) > 0.0, "counter-clockwise"
 
 
 @given(convex_polygons(), convex_polygons(), near, near)
