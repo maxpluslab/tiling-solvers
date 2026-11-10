@@ -1,6 +1,8 @@
 """Invariants of the repository itself, from CLAUDE.md. They fail when the structure is broken."""
 
 import ast
+import subprocess
+import sys
 import tomllib
 from pathlib import Path
 
@@ -44,6 +46,55 @@ def imported_modules(path: Path) -> set[str]:
             found.add(node.module)
             found.update(f"{node.module}.{alias.name}" for alias in node.names)
     return found
+
+
+def in_package_imports(path: Path) -> set[Path]:
+    """Files of the package that ``path`` imports directly."""
+    found: set[Path] = set()
+    for module in imported_modules(path):
+        parts = module.split(".")
+        if parts[0] != "maxplus_solvers":
+            continue
+        for depth in range(len(parts), 1, -1):
+            base = PACKAGE.joinpath(*parts[1:depth])
+            for candidate in (
+                base.with_suffix(".py"),
+                base.with_suffix(".pyi"),
+                base / "__init__.py",
+            ):
+                if candidate.is_file():
+                    found.add(candidate)
+    return found
+
+
+def test_the_validator_is_independent_of_the_rust_geometry() -> None:
+    """Neither validation.py nor anything it imports from the package may touch ``_native``.
+
+    The package's own ``__init__`` is left out: it reads the version from
+    ``_native`` and contains no geometry.
+    """
+    seen: set[Path] = set()
+    queue = [PACKAGE / "validation.py"]
+    while queue:
+        path = queue.pop()
+        if path in seen:
+            continue
+        seen.add(path)
+        assert path.name != "_native.pyi", "the validator reaches _native"
+        assert not any("_native" in module for module in imported_modules(path)), path.name
+        queue.extend(in_package_imports(path))
+    names = {path.relative_to(PACKAGE).as_posix() for path in seen}
+    assert "validation.py" in names and "models.py" in names, "the import walk found nothing"
+
+
+def test_importing_the_package_does_not_need_the_optional_extras() -> None:
+    """Shapely is loaded by the validator only, so the solvers run without it."""
+    code = (
+        "import sys, maxplus_solvers, maxplus_solvers.api, maxplus_solvers.sanitize; "
+        "print(sorted(m for m in ('shapely', 'ortools', 'numpy') if m in sys.modules))"
+    )
+    done = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True)
+    assert done.stdout.strip() == "[]"
 
 
 def test_the_stub_declares_exactly_what_the_extension_exports() -> None:

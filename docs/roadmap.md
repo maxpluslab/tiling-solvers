@@ -6,8 +6,8 @@ Each phase is sized for one working session and ends with an exit criterion that
 | --- | --- | --- |
 | 0 | Repository skeleton | Done |
 | 1 | Contracts and fixtures | Done |
-| 2 | Independent validator | Next |
-| 3 | Rust geometry kernel | |
+| 2 | Independent validator | Exit tests pass locally; Done once CI is green |
+| 3 | Rust geometry kernel | Next |
 | 4 | Contact candidates, Python prototype, solver contract | |
 | 5 | Rust contact DFS | |
 | 6 | CP-SAT backend | |
@@ -55,6 +55,14 @@ Done, with these decisions:
 - It must not import `_native`.
 
 **Exit:** every answer key validates. Perturbed keys fail the expected check: a shifted piece, a rotated piece, two swapped pieces, and a relief assembly that tiles but has mismatched roofs.
+
+Implemented, with these decisions:
+
+- The exit criterion is `tests/corpus/test_keys_validate.py`. Every piece of every fixture is shifted by 5 mm in four directions, turned by 20° both ways, and swapped with a piece of another shape; each must fail a depth check, not only the looser area check.
+- "Tiles but has mismatched roofs" is tested on the ridge synthetic and on every corpus piece whose footprint is unchanged by half a turn. Half-turned, such a piece must fail the roof check and nothing else.
+- The validator differs from the browser in three places, each time on the stricter or more exact side: uncovered area from an exact union; outside depth as Euclidean distance to the target, which is larger beyond a corner; and penetration depth as the true shortest separating translation. The browser's formula for the last takes the shared extent along each edge normal, which understates the depth when one piece's extent lies inside the other's. They agree for every near-solution.
+- A finding about the corpus: `rat1` has a rectangular piece with a level roof (`p02` in the fixture). It fits both ways round, so the relief puzzle has at least two solutions at the level of poses, though one assembly. A test pins this so the corpus cannot change unnoticed. Canonical solution forms in phase 5 must treat the two as equal.
+- Phase 3 follows from the penetration decision: the Rust SAT routine must return the true separating distance, or the differential tests against this validator will disagree on nested pieces.
 
 ## Phase 3: Rust geometry kernel
 

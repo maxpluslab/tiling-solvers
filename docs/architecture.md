@@ -122,7 +122,7 @@ Numbers are `f64` with explicit tolerances and property tests. Exact or adaptive
 
 The [`geo`](https://docs.rs/geo) crate is worth evaluating for general polygon operations; the hot path uses specialized convex routines.
 
-The final validator is kept independent of this engine, on Shapely at first, so that one bug cannot affect both search and verification. Its rules mirror the browser's completion check in `tropical-puzzle-lab/web/src/geometry/evaluate.ts`.
+The final validator is kept independent of this engine, on Shapely at first, so that one bug cannot affect both search and verification. Its rules mirror the browser's completion check in `tropical-puzzle-lab/web/src/geometry/evaluate.ts`, and where it departs from it the validator is the stricter or more exact of the two: uncovered area comes from an exact union, outside depth is the Euclidean distance to the target, and penetration depth is the true shortest separating translation. The last two coincide with the browser's values for any near-solution.
 
 ## CP-SAT
 
