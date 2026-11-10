@@ -6,7 +6,7 @@ Each phase is sized for one working session and ends with an exit criterion that
 | --- | --- | --- |
 | 0 | Repository skeleton | Done |
 | 1 | Contracts and fixtures | Done |
-| 2 | Independent validator | Exit tests pass locally; Done once CI is green |
+| 2 | Independent validator | Done |
 | 3 | Rust geometry kernel | Next |
 | 4 | Contact candidates, Python prototype, solver contract | |
 | 5 | Rust contact DFS | |
@@ -56,7 +56,7 @@ Done, with these decisions:
 
 **Exit:** every answer key validates. Perturbed keys fail the expected check: a shifted piece, a rotated piece, two swapped pieces, and a relief assembly that tiles but has mismatched roofs.
 
-Implemented, with these decisions:
+Done, with these decisions:
 
 - The exit criterion is `tests/corpus/test_keys_validate.py`. Every piece of every fixture is shifted by 5 mm in four directions, turned by 20° both ways, and swapped with a piece of another shape; each must fail a depth check, not only the looser area check.
 - "Tiles but has mismatched roofs" is tested on the ridge synthetic and on every corpus piece whose footprint is unchanged by half a turn. Half-turned, such a piece must fail the roof check and nothing else.
