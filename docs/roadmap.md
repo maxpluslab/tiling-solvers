@@ -5,15 +5,15 @@ Each phase is sized for one working session and ends with an exit criterion that
 | Phase | Subject | Status |
 | --- | --- | --- |
 | 0 | Repository skeleton | Done |
-| 1 | Contracts and fixtures | Next |
-| 2 | Independent validator | |
+| 1 | Contracts and fixtures | Done |
+| 2 | Independent validator | Next |
 | 3 | Rust geometry kernel | |
 | 4 | Contact candidates, Python prototype, solver contract | |
 | 5 | Rust contact DFS | |
 | 6 | CP-SAT backend | |
 | 7 | Benchmark and research platform | |
 
-The source corpus is 8 constructions in two variants each (relief and flat), 16 puzzles of 6 to 20 convex pieces with 4 or 5 vertices, in a 144 mm square tray.
+The source corpus is 8 constructions in two variants each (relief and flat), 16 puzzles of 6 to 20 convex pieces with 3 to 8 vertices, in a 144 mm square tray.
 
 ## Phase 0: repository skeleton
 
@@ -31,6 +31,17 @@ Cargo workspace with four crates, the `maxplus_solvers` package with its `_nativ
 - `load_puzzle()` in the public API.
 
 **Exit:** all 16 fixtures and the synthetics load and validate against the schema. A test asserts that no fixture contains reference poses, tropical data or original piece ids, and that no piece is stored in its solved orientation.
+
+Done, with these decisions:
+
+- The exit criterion is `tests/corpus/`. The testing rules that came out of this phase are in [CLAUDE.md](../CLAUDE.md#testing).
+- Committed fixtures are footprint (the `-flat` puzzles) and relief. The importer also builds tropical-aware instances, but none is committed until a solver for that regime exists.
+- The sanitizer seed is recorded in the answer key and not in the fixture, because the rotations can be recomputed from it. Each polygon's starting vertex is randomized as well.
+- A puzzle and its flat twin are sanitized with unrelated seeds, so a flat solution does not transfer pose for pose.
+- "Solved orientation" is measured between vertex sets, so a symmetric piece counts as solved in each of its equivalent orientations.
+- There are four synthetics: two rectangles, the same with a ridge roof, four squares, and four triangles in a triangular target. Their keys record the solution count by construction, as tilings and up to rotation of the target. Corpus keys record no count: uniqueness there is an open question.
+- The models are dataclasses with no runtime dependencies. The `tiling-core` mirror has no Python conversion yet; it arrives with the first Rust consumer, with a round-trip test.
+- The keys are checked here for area, containment and roof continuity at shared corners. Pairwise overlap needs the validator of phase 2.
 
 ## Phase 2: independent validator
 

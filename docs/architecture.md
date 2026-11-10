@@ -98,7 +98,12 @@ The source `puzzle.json` reveals the answer in three ways:
 2. Every reference `theta` is 0, so each piece's stored polygon is already in its solved orientation, and its centroid offset is all that is missing.
 3. Piece ids (`Ab`, `Cd`) name the tropical terms, and piece order is construction order.
 
-An instance is therefore built by rotating each piece by a seeded random angle (the roof gradient rotates with it), shuffling the pieces, assigning opaque ids, and dropping `reference`, `tropical`, `provenance`, `scramble`, names and descriptions. The reference poses are carried through the same transformation into a separate answer key, used by tests and diagnostics and never by a solver. The browser itself judges completion by geometric feasibility, not by equality to the reference.
+Two smaller leaks are closed as well:
+
+4. The starting vertex of each polygon, which the generator chooses consistently. Each vertex list is cyclically shifted by a random amount.
+5. The sanitizer's own seed. The rotation angles can be recomputed from it, so it is recorded in the answer key and never in the instance.
+
+An instance is therefore built by rotating each piece by a seeded random angle (the roof gradient rotates with it), shifting its starting vertex, shuffling the pieces, assigning opaque ids, and dropping `reference`, `tropical`, `provenance`, `scramble`, names and descriptions. A rotation is redrawn until the stored polygon differs visibly from its solved orientation as a set of vertices, so that a square turned by a quarter does not count as moved. A puzzle and its flat variant get unrelated seeds. The reference poses are carried through the same transformation into a separate answer key, used by tests and diagnostics and never by a solver. The browser itself judges completion by geometric feasibility, not by equality to the reference.
 
 ## Geometry
 

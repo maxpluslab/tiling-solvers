@@ -1,0 +1,28 @@
+{
+  "instanceId": "syn-two-rectangles-ridge",
+  "instanceHash": "d8e26ab3373ca598756b13256aa1a5c58f357cc7f2f9c09c1fc9b8068b1e4ed4",
+  "sanitizer": {
+    "version": 1,
+    "seed": 20261109
+  },
+  "poses": {
+    "p00": {
+      "x": 24.0,
+      "y": 0.0,
+      "theta": -0.7897001070138727
+    },
+    "p01": {
+      "x": -48.0,
+      "y": 0.0,
+      "theta": 0.32285778079351957
+    }
+  },
+  "sourceIds": {
+    "p00": "wide",
+    "p01": "narrow"
+  },
+  "solutionCount": {
+    "canonical": 1,
+    "assemblies": 4
+  }
+}

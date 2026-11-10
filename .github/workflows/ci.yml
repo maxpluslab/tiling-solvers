@@ -53,5 +53,21 @@ jobs:
       - name: Pyright
         run: uv run pyright
 
+      # The fixtures name the source commit they were imported from. Check that
+      # commit out so the suite can regenerate them and compare.
+      - name: Read the pinned source commit
+        id: source
+        shell: bash
+        run: echo "commit=$(uv run python scripts/import_fixtures.py --print-source-commit)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+        with:
+          repository: maxpluslab/tropical-puzzle-lab
+          ref: ${{ steps.source.outputs.commit }}
+          path: tropical-puzzle-lab
+
       - name: Python tests
         run: uv run pytest
+        env:
+          HYPOTHESIS_PROFILE: ci
+          TROPICAL_PUZZLE_LAB: ${{ github.workspace }}/tropical-puzzle-lab

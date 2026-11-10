@@ -14,7 +14,16 @@ Python owns orchestration and analysis. Rust owns the geometry and the search.
 
 ## Status
 
-**Skeleton only.** The workspace builds, the Python package imports its Rust extension, and CI runs on Linux and Windows. No solver exists yet. The work is laid out in [docs/roadmap.md](docs/roadmap.md), and the design in [docs/architecture.md](docs/architecture.md).
+**Contracts and fixtures.** The instance format, the sanitizing importer and the benchmark corpus exist: 16 puzzles from Tropical Puzzle Lab and 4 synthetic ones with known solution counts, each with an answer key that only tests read. No solver or validator exists yet. The work is laid out in [docs/roadmap.md](docs/roadmap.md), and the design in [docs/architecture.md](docs/architecture.md).
+
+```python
+from maxplus_solvers import load_puzzle
+
+puzzle = load_puzzle("benchmarks/fixtures/new2.json")
+flat = load_puzzle(
+    "benchmarks/fixtures/new2.json", regime="footprint"
+)  # the same pieces without roofs
+```
 
 ## Quick start
 
@@ -37,11 +46,14 @@ crates/
   tiling-search/     custom Rust solvers, one module each
   tiling-py/         PyO3 bindings only
 python/maxplus_solvers/   the Python package; `_native` is the Rust extension
-tests/               pytest suites
+schemas/             versioned exchange formats (`instance-v1.json`)
+benchmarks/fixtures/ sanitized puzzle instances, generated
+scripts/             `import_fixtures.py` regenerates fixtures and answer keys
+tests/               pytest suites: unit, property, corpus, architecture; answer keys in `tests/keys/`
 docs/                architecture and roadmap
 ```
 
-Planned, added by the roadmap phase that needs them: `schemas/` (versioned exchange formats), `benchmarks/` (sanitized fixtures and manifests), `scripts/`, `notebooks/`.
+Planned, added by the roadmap phase that needs them: benchmark manifests, `notebooks/`.
 
 ## Relation to Tropical Puzzle Lab
 
