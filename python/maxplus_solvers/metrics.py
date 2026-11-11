@@ -13,9 +13,10 @@ class SearchMetrics:
 
     # Search nodes expanded, the root included.
     nodes: int = 0
-    # Nodes left without success: no piece fits the corner branched on.
+    # Nodes left without success: no piece fits the corner branched on, a pruning
+    # rule calls the state a dead end, or every piece is down and something is uncovered.
     backtracks: int = 0
-    # Pieces put down, counting every attempt.
+    # Pieces put down as a branch of the search, counting every attempt.
     placements: int = 0
     # The largest number of pieces down at once.
     max_depth: int = 0
@@ -23,11 +24,21 @@ class SearchMetrics:
     candidates_generated: int = 0
     rejected_outside: int = 0
     rejected_overlap: int = 0
+    rejected_roof: int = 0
+    # Nodes given up by a pruning rule, and candidates dropped before they became nodes.
+    pruned_cavity: int = 0
+    pruned_closure: int = 0
+    pruned_anchor: int = 0
+    pruned_lookahead: int = 0
+    # Assemblies found that were a turn of one already found.
+    duplicates: int = 0
     solutions: int = 0
     wall_time_s: float = 0.0
     cpu_time_s: float = 0.0
     # Wall time until the first solution; absent if there was none.
     first_solution_s: float | None = None
+    # Wall time until the search had run to its end; absent if it was stopped first.
+    exhausted_s: float | None = None
 
     def to_dict(self) -> dict[str, float]:
         """The record as ``SolveResult.metrics`` carries it. Absent values are left out."""

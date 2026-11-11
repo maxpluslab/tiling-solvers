@@ -379,6 +379,7 @@ dependencies = [
 name = "tiling-search"
 version = "0.1.0"
 dependencies = [
+ "proptest",
  "tiling-core",
  "tiling-geometry",
 ]

@@ -105,7 +105,7 @@ def test_the_search_is_deterministic() -> None:
     first = solve(strips(), SolverConfig(DFS, max_solutions=None))
     second = solve(strips(), SolverConfig(DFS, max_solutions=None, seed=99))
     assert first.solutions == second.solutions
-    timed = {"wall_time_s", "cpu_time_s", "first_solution_s"}
+    timed = {"wall_time_s", "cpu_time_s", "first_solution_s", "exhausted_s"}
     assert {k: v for k, v in first.metrics.items() if k not in timed} == {
         k: v for k, v in second.metrics.items() if k not in timed
     }
@@ -141,7 +141,11 @@ def test_a_result_says_what_produced_it_and_what_it_claims() -> None:
     assert result.candidate_set == "corner-contact/1"
     # f64 with tolerances proves nothing about completeness.
     assert result.candidates_proven_complete is False
-    assert set(result.metrics) == set(SearchMetrics().to_dict()) | {"first_solution_s"}
+    # The two times that are only there when they happened: a solution, and the end.
+    assert set(result.metrics) == set(SearchMetrics().to_dict()) | {
+        "first_solution_s",
+        "exhausted_s",
+    }
     assert SolveResult.from_dict(json.loads(json.dumps(result.to_dict()))) == result
 
 
@@ -181,7 +185,7 @@ def test_a_mode_with_more_than_the_instance_knows_is_refused() -> None:
         raise AssertionError("the solver must not be reached")
 
     spec = solvers.SolverSpec(
-        "test.everything", everything, frozenset(Regime), "none", "accepts any regime"
+        "test.everything", everything, dict.fromkeys(Regime, "none"), "accepts any regime"
     )
     solvers.register(spec)
     try:
@@ -206,7 +210,8 @@ def test_the_registry_lists_the_prototype() -> None:
     assert available_solvers() == tuple(sorted(available_solvers()))
     spec = solvers.get(DFS)
     assert spec.regimes == frozenset({Regime.FOOTPRINT})
-    assert spec.candidate_set and spec.description
+    assert spec.candidate_sets == {Regime.FOOTPRINT: "corner-contact/1"}
+    assert spec.description
 
 
 def test_an_unknown_solver_is_refused_with_the_known_ones_named() -> None:
@@ -219,7 +224,7 @@ def test_a_name_is_registered_once_and_needs_a_regime() -> None:
     with pytest.raises(ValueError, match="already registered"):
         solvers.register(spec)
     with pytest.raises(ValueError, match="declares no regime"):
-        solvers.register(solvers.SolverSpec("test.none", spec.run, frozenset(), "x", "x"))
+        solvers.register(solvers.SolverSpec("test.none", spec.run, {}, "x"))
     assert "test.none" not in available_solvers()
 
 

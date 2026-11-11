@@ -82,7 +82,7 @@ def test_proposals_put_a_vertex_in_the_corner_and_an_edge_along_its_side() -> No
     assert (lying.x, lying.y, lying.theta) == lying.pose
     # A rectangle maps onto itself by a half turn, so vertices 2 and 3 are not tried.
     assert state.symmetry() == [2]
-    assert state.stats() == (2, 0, 0)
+    assert state.stats() == (2, 0, 0, 0)
     assert repr(lying).startswith("Candidate(piece=0, x=1.0, y=0.5, theta=0.0, vertex=0")
 
 
@@ -94,7 +94,7 @@ def test_proposals_leave_out_twins_and_count_what_does_not_fit() -> None:
     gap = next(c for c in state.frontier() if (c.x, c.y) == (3.5, 0.0))
     assert state.propose(gap) == []
     # Piece 0 was tried lying and standing and reaches outside both ways; piece 1 was not tried.
-    assert state.stats() == (2, 2, 0)
+    assert state.stats() == (2, 2, 0, 0)
 
 
 def test_a_proposal_that_enters_a_placed_piece_is_counted_as_such() -> None:
@@ -106,7 +106,7 @@ def test_a_proposal_that_enters_a_placed_piece_is_counted_as_such() -> None:
     # lies 3.5 wide and fits; with its long side there it comes down to y = 0.5, into the bar.
     (lying,) = state.propose(top_left)
     assert lying.pose == pytest.approx((1.75, 3.0, -QUARTER), abs=1e-12)
-    assert state.stats() == (2, 0, 1)
+    assert state.stats() == (2, 0, 1, 0)
 
 
 def test_check_placement_measures_outside_and_overlap() -> None:

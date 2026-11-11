@@ -7,8 +7,13 @@ rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[features]
+# Proptest strategies for other crates' tests: random convex polygons and tilings.
+testing = ["dep:proptest"]
+
 [dependencies]
 tiling-core.workspace = true
+proptest = { workspace = true, optional = true }
 
 [dev-dependencies]
 proptest.workspace = true

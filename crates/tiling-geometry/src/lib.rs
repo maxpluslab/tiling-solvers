@@ -16,9 +16,11 @@
 //! | [`relief`] | roof heights of placed pieces and roof continuity along an edge |
 //! | [`contact`] | corners of the uncovered region, and the pose that fills one |
 //! | [`graph`] | which edges may mate, which pieces are interchangeable |
+//! | [`cavity`] | the separate parts of the uncovered region, their areas and widths |
 //! | [`assembly`] | reversible partial assembly: `frontier`, `propose`, `check_placement` |
 
 pub mod assembly;
+pub mod cavity;
 pub mod clip;
 pub mod contact;
 pub mod edges;
@@ -27,14 +29,15 @@ pub mod polygon;
 pub mod relief;
 pub mod sat;
 
-#[cfg(test)]
-mod testing;
+#[cfg(any(test, feature = "testing"))]
+pub mod testing;
 
 pub use assembly::{Assembly, AssemblyError, CandidatePlacement, CandidateStats, PlacementCheck};
+pub use cavity::{Cavity, cavities, least_width};
 pub use clip::{intersection, intersection_area, outside_area};
 pub use contact::{ContactTolerance, Corner, EdgeRef, free_corners, pose_at_corner};
 pub use edges::{Edge, EdgeSignature, edge_signatures, edges};
-pub use graph::{EdgeGraph, Shape};
+pub use graph::{EdgeGraph, Shape, rotation_order};
 pub use polygon::{
     ConvexPolygon, NotConvex, centroid, contains_point, distance_to_segment, is_convex_ccw,
     outside_depth, point_outside_depth, signed_area, transform,

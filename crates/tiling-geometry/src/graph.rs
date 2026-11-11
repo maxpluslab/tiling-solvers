@@ -37,6 +37,8 @@ pub struct EdgeGraph {
     /// `arcs[fixed * edge_count + mover]` over piece edges. Tray edges accept every piece edge.
     arcs: Vec<bool>,
     classes: Vec<usize>,
+    /// For each piece, the turn that takes its class's first piece onto it.
+    turns: Vec<f64>,
     symmetry: Vec<usize>,
 }
 
@@ -62,6 +64,15 @@ fn same_cycle(
 ) -> bool {
     let n = a.len();
     n == b.len() && (0..n).all(|k| same_edge(&a[k], &b[(k + shift) % n], tolerance))
+}
+
+/// How many rotations about its centroid map a convex polygon onto itself:
+/// 1 for a polygon with no symmetry, 4 for a square.
+pub fn rotation_order(polygon: &[Vec2], tolerance: &ContactTolerance) -> usize {
+    let cycle = edge_signatures(polygon, None);
+    (0..cycle.len())
+        .filter(|&s| same_cycle(&cycle, &cycle, s, tolerance))
+        .count()
 }
 
 impl EdgeGraph {
@@ -97,16 +108,27 @@ impl EdgeGraph {
         }
 
         // A piece's class is the first piece with the same cycle of edges.
-        let classes = (0..shapes.len())
+        // With it goes the turn that lays that piece, as stored, onto this one as
+        // stored: congruent pieces need not be stored the same way round.
+        let direction = |polygon: &[Vec2], edge: usize| {
+            let (a, b) = (polygon[edge], polygon[(edge + 1) % polygon.len()]);
+            (b[1] - a[1]).atan2(b[0] - a[0])
+        };
+        let (classes, turns): (Vec<usize>, Vec<f64>) = (0..shapes.len())
             .map(|p| {
                 (0..p)
-                    .find(|&q| {
+                    .find_map(|q| {
                         (0..signatures[p].len())
-                            .any(|s| same_cycle(&signatures[q], &signatures[p], s, tolerance))
+                            .find(|&s| same_cycle(&signatures[q], &signatures[p], s, tolerance))
+                            .map(|s| {
+                                let turn = direction(&shapes[p].polygon, s)
+                                    - direction(&shapes[q].polygon, 0);
+                                (q, turn)
+                            })
                     })
-                    .unwrap_or(p)
+                    .unwrap_or((p, 0.0))
             })
-            .collect();
+            .unzip();
         let symmetry = signatures
             .iter()
             .map(|cycle| {
@@ -122,6 +144,7 @@ impl EdgeGraph {
             edge_count,
             arcs,
             classes,
+            turns,
             symmetry,
         }
     }
@@ -159,6 +182,13 @@ impl EdgeGraph {
     /// one class are interchangeable.
     pub fn class(&self, piece: usize) -> usize {
         self.classes[piece]
+    }
+
+    /// The turn about its centroid that takes the first piece of this piece's
+    /// class, as stored, onto this piece as stored. Zero for that first piece.
+    /// For a piece with a symmetry it is one of several such turns.
+    pub fn turn_from_class(&self, piece: usize) -> f64 {
+        self.turns[piece]
     }
 
     /// How many rotations map `piece` onto itself, roof included: 1 for a

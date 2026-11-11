@@ -11,5 +11,9 @@ repository.workspace = true
 tiling-core.workspace = true
 tiling-geometry.workspace = true
 
+[dev-dependencies]
+proptest.workspace = true
+tiling-geometry = { workspace = true, features = ["testing"] }
+
 [lints]
 workspace = true

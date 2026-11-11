@@ -9,7 +9,7 @@ Each phase is sized for one working session and ends with an exit criterion that
 | 2 | Independent validator | Done |
 | 3 | Rust geometry kernel | Done |
 | 4 | Contact candidates, Python prototype, solver contract | Done |
-| 5 | Rust contact DFS | Next |
+| 5 | Rust contact DFS | Implemented; exit tests awaiting CI |
 | 6 | CP-SAT backend | |
 | 7 | Benchmark and research platform | |
 
@@ -120,6 +120,24 @@ Done, with these decisions:
 - Registered as `rust.contact_dfs`.
 
 **Exit:** all 16 fixtures are solved and validated. Time to first solution and time to exhaust the search are reported separately. On the small fixtures the solution set equals the Python prototype's.
+
+Implemented, and to be marked done when the exit tests pass in CI on both platforms. The decisions:
+
+- The exit criterion is `tests/corpus/test_rust_contact_dfs.py`. Each of the 16 fixtures is searched to the end in its own regime; every assembly returned passes the validator as an exact tiling, with continuous roofs in relief; the answer key is among them. `first_solution_s` and `exhausted_s` are separate metrics. On the five footprint fixtures the prototype can finish, the two solvers return the same assemblies, and with its additions switched off the Rust search visits exactly the prototype's nodes.
+- The lens is difficulty, not speed. Every rule beyond the prototype's is a switch in `SolverConfig.options`, and the whole search is tested to find the same assemblies with each switch on and off. What each rule buys is measured and tabulated in [algorithms.md](algorithms.md#what-makes-a-puzzle-hard-and-what-helps).
+- Relief filtering is in candidate generation: a placement is refused if its roof height at the corner differs from the roof already there, before any polygon work, and if its roof steps along any edge stretch shared with a placed piece. The candidate set of the relief regime is named `corner-contact-relief/1`.
+- Cavity pruning by area and by least width, as planned. It turned out to matter little: on the corpus it never changes a node count by more than one percent.
+- Closure pruning, which the roadmap did not foresee and which is the pruning rule that works on footprints: a straight run of boundary between two convex corners must be a sum of whole edges of different remaining pieces, and a convex corner a sum of their angles.
+- Looking one placement ahead is implemented and off by default. It cuts the nodes visited by a factor of 3 to 60; counted in states examined it wins on three footprint fixtures and loses on five, worst on the hardest.
+- Symmetry: one piece, the largest that is congruent to no other, is held to one sector of the tray, and repeats are removed by comparing canonical forms. `tray_rotations=all` restores the prototype's counting. Congruent pieces and self-symmetric pieces were already handled where candidates are generated.
+- Canonical form (`tiling-search::canonical`): seats, a centroid and a turn modulo the piece's symmetry, sorted within each class of congruent pieces, smallest over the tray's rotations. Congruent pieces are stored at unrelated rotations by the sanitizer; the turn is measured relative to the class's first piece. The validator caught the first version getting that wrong on the synthetic fixtures.
+- Collinear-chain placements are not implemented. The corner argument of phase 4 shows they add no assemblies, and no measurement asked for them.
+- Candidate ordering is an option: by matched edges (the default), as generated, or random from the seed.
+- `SolverSpec` now maps each regime to its candidate set. `maxplus-solve` takes `--option NAME=VALUE` and defaults to `rust.contact_dfs`.
+- `tiling-geometry` exposes its proptest strategies behind a `testing` feature, so that `tiling-search` tests its search on the same random tilings.
+- Tests beyond the exit: cavities against a Shapely difference, the roof step of a placement against the validator's seam mismatch, canonical forms against the polygon-set oracle, properties in Rust over random tilings cut by chords (the search finds the tiling it was cut from; no rule changes what is found; roofs under one plane are continuous and a lifted one is not), and an architecture test that a production solver makes one `_native` call. The rules were each broken by hand once and the tests watched to fail.
+- Findings, relative to the candidates generated. In relief every corpus puzzle has exactly one assembly, and the search for it is nearly free of backtracking: at most 146 nodes for 20 pieces with every rule off. As footprints, six of the eight have one assembly, `rat1-flat` has 101 and `rat2-flat` has 2. The roofs single out one of `rat1`'s 101. The hard instances are the 16-piece footprints: about a million nodes each to finish, and for `new1-flat` hundreds of thousands to the first solution.
+- For later phases: the 16-piece footprint searches are the benchmark that pruning or learning has to move. Both are dominated by dead ends five or six pieces deep that no current rule sees coming.
 
 ## Phase 6: CP-SAT backend
 
