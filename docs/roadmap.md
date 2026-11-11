@@ -11,7 +11,7 @@ Each phase is sized for one working session and ends with an exit criterion that
 | 4 | Contact candidates, Python prototype, solver contract | Done |
 | 5 | Rust contact DFS | Done |
 | 6 | CP-SAT backend | Done |
-| 7 | Benchmark and research platform | Next |
+| 7 | Benchmark and research platform | Done |
 
 The source corpus is 8 constructions in two variants each (relief and flat), 16 puzzles of 6 to 20 convex pieces with 3 to 8 vertices, in a 144 mm square tray.
 
@@ -172,7 +172,7 @@ Done, with these decisions:
 
 **Exit:** one command reproduces a results table for the whole corpus across all registered solvers.
 
-Implemented and not yet ticked: the exit test has to pass in CI on both platforms first. Decisions:
+Done, with these decisions:
 
 - The exit criterion is `tests/corpus/test_benchmark.py::test_one_command_reproduces_the_corpus_table`: `maxplus-bench run benchmarks/manifests/corpus.toml --no-times` writes the table committed as `benchmarks/results/corpus.md`, every registered solver on every corpus puzzle it can run. The table holds statuses and counts and no times, so it is the same on any machine.
 - Manifests are TOML, read with the standard library. A list is a factor and a block is the product of its factors. Records are JSON lines; they are not committed, the tables are.
