@@ -8,8 +8,10 @@
 //! | --- | --- |
 //! | [`contact_dfs`] | depth-first search over corner contacts, with roofs, cavity pruning and the tray's rotations |
 //! | [`canonical`] | when two assemblies are the same, and a canonical form |
+//! | [`enumerate`] | a finite set of placements and their conflicts, for solvers that choose among placements |
 
 pub mod canonical;
 pub mod contact_dfs;
+pub mod enumerate;
 
-pub use canonical::Symmetry;
+pub use canonical::{Placement, Symmetry};

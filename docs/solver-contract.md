@@ -60,6 +60,8 @@ No solver in this repository sets `candidates_proven_complete` today, and a solv
 | --- | --- | --- |
 | `corner-contact/1` | `python.contact_dfs`, `rust.contact_dfs` (footprint) | Placements with a piece vertex at a corner of the uncovered region and the edge leaving it flush against the corner's first side, within the contact noise. Complete for exact assemblies of convex pieces by the argument in [algorithms.md](algorithms.md#why-the-rule-loses-no-assembly), in exact arithmetic. It does not contain assemblies that only pass because of the validation tolerances. |
 | `corner-contact-relief/1` | `rust.contact_dfs` (relief) | The placements of `corner-contact/1` whose roofs continue the roofs already down: at the corner, and along every edge stretch shared with a placed piece, the two roofs differ in height by no more than the contact noise times the steepest roof gradient (at least the contact noise). Complete, in exact arithmetic, for exact assemblies whose roofs are exactly continuous. The validator allows a roof step of 1.75 mm on the corpus; assemblies that need any of that allowance are not in the set. |
+| `corner-contact-reachable/1` | `cp_sat.placements` (footprint) | The placements of `corner-contact/1` that the search of `rust.contact_dfs` puts down somewhere in its tree, with the listing options the result records. A finite list, built by running that search to its end. It holds every assembly that search finds and, being a subset of `corner-contact/1`, no more. If the listing was cut short by a limit the list is a part of this set and the result is not `exhaustive`. |
+| `corner-contact-relief-reachable/1` | `cp_sat.placements` (relief) | The same, of `corner-contact-relief/1`. |
 
 A change to what a candidate set contains gets a new name. A rule that only removes candidates which cannot be part of any assembly in the set (the pruning rules of `rust.contact_dfs`) does not change the set: by the arguments in [algorithms.md](algorithms.md#the-rust-contact-search), and by test, the whole search finds the same assemblies with the rule on or off.
 
@@ -82,7 +84,11 @@ Each solver states which differences it counts.
 
 In the relief regime "congruent" and "onto itself" include the roof: two pieces of one shape under different roofs are different pieces, and a rectangle under a sloping roof is not its own half turn. A footprint solution of a relief puzzle may therefore put a symmetric piece either way round, and need not pass the relief validator.
 
+| `cp_sat.placements` | As `rust.contact_dfs`. With `tray_rotations=once`, a choice that is a tray rotation of one already returned is recognised from the listed placements and counted in `duplicates`. | As `rust.contact_dfs`. |
+
 `rust.contact_dfs` returns each solution in a canonical form: of the poses that describe the same assembly, a fixed one. With `tray_rotations=once` the orientation of the tray is part of that choice, so the assembly returned may be the answer key turned by a rotation of the tray.
+
+`cp_sat.placements` returns the same assemblies but not in that form: of an assembly and its tray rotations it returns whichever it chose first, and congruent pieces take the chosen places in piece order. Compare its solutions with another solver's as placed polygons, not pose by pose.
 
 ## Metrics
 
@@ -108,7 +114,18 @@ In the relief regime "congruent" and "onto itself" include the roof: two pieces 
 | `first_solution_s` | Wall time to the first solution. Absent if there was none. |
 | `exhausted_s` | Wall time to the end of the search. Absent unless the result is `exhaustive`. With `first_solution_s` it separates finding an assembly from showing there is no other. |
 
-A solver for which a count has no meaning leaves it at zero. New metrics are added to `SearchMetrics` and to this table together.
+A solver that chooses from a list of placements (`cp_sat.placements`) reports the counts above for the search that built the list, with `duplicates` and `solutions` for the choosing, and adds:
+
+| Name | Meaning |
+| --- | --- |
+| `model_placements` | Placements listed: one Boolean each. |
+| `model_cliques` | Sets of placements stated as "at most one": those that hold one probe point well inside them. |
+| `model_pairs` | Conflicting pairs no clique states: overlaps too thin for a probe, and roof steps between neighbours. |
+| `model_covers` | Sets of placements stated as "at least one": those that reach one probe point of the target. Zero with `coverage=false`. |
+| `sat_branches`, `sat_conflicts` | CP-SAT's count of decisions and of conflicts, with one worker. Zero conflicts means propagation and decisions alone reached every answer. |
+| `listing_s`, `model_s`, `sat_s` | Wall time of the listing search with its conflict computation, of building the model, and of CP-SAT. |
+
+A solver for which a count has no meaning leaves it at zero; the model metrics are absent from solvers that have no model. New metrics are added to `SearchMetrics` and to these tables together.
 
 ## Reproducibility
 
@@ -133,6 +150,7 @@ A result records `solver`, `solver_version`, `regime`, `instance_hash` and the w
 | --- | --- | --- |
 | `python.contact_dfs` | footprint | The Python prototype of the corner contact search. Deterministic; ignores `seed`. Option `node_limit`: stop after that many nodes. |
 | `rust.contact_dfs` | footprint, relief | The corner contact search in Rust, one call per solve. Deterministic unless `order=random`, which uses `seed`. Options below. |
+| `cp_sat.placements` | footprint, relief | CP-SAT choosing among the placements the Rust search reaches: one call into Rust for the list, then OR-Tools with one worker and no objective. Needs the `cp-sat` extra. Deterministic for a given OR-Tools version; `seed` is CP-SAT's random seed. `time_limit_s` covers the listing and the choosing together. `no_solution_found` is CP-SAT's `INFEASIBLE` on a whole list: the list holds no assembly. Options below. |
 
 ### Options of `rust.contact_dfs`
 
@@ -147,6 +165,21 @@ Every rule the search adds to the prototype's can be switched off, so that its e
 | `closure_pruning` | `true` | Abandon a state with a straight run or a convex corner the remaining pieces cannot close. |
 | `lookahead` | `false` | Count a placement towards a corner only if the state it leads to is not a dead end by the pruning rules that are on. Fewer nodes, usually more states examined. |
 | `order` | `matched-edges` | The order in which a node's placements are tried: `matched-edges` (most whole edges shared with placed pieces first), `generated` (the prototype's order) or `random` (shuffled, from `seed`). It changes which solution comes first and how soon. |
+
+### Options of `cp_sat.placements`
+
+The first six shape the search that lists the placements and mean what they mean for `rust.contact_dfs`; a rule that is off makes the list longer and never changes what is chosen from it. `coverage` and `targeted_probes` shape the model.
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `node_limit` | none | Stop the listing search after that many nodes. The list is then partial. |
+| `max_placements` | none | Stop the listing search once that many placements are listed. The list is then partial. |
+| `tray_rotations` | `once` | `once`: a choice and its tray rotations are one solution. `all`: each is returned. |
+| `anchor` | `true` | List only placements the anchored search reaches, so that rotated copies are mostly not in the list. Without it they are chosen and discarded. |
+| `cavity_pruning` | `true` | The listing search's cavity pruning. |
+| `closure_pruning` | `true` | The listing search's closure pruning. |
+| `coverage` | `true` | State, for each probe point of the target, that some chosen placement reaches it. Implied by the rest of the model, so it excludes nothing; it is what lets CP-SAT see that a partial choice cannot be completed. |
+| `targeted_probes` | `false` | Give each overlap the probe grid missed a probe of its own, so that it is stated in a clique instead of as a pair. Far fewer pairs, many more cliques; the same exclusions. |
 
 ## Adding a solver
 

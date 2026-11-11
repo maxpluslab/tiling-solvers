@@ -36,6 +36,56 @@ pub fn seam_mismatch(
     at(p0).max(at(p1))
 }
 
+/// The largest roof step between two placed convex pieces along the edge
+/// stretches they share: where an edge of one lies on the line of an edge of
+/// the other, running the other way, for longer than `length_tolerance`.
+/// Zero if they share no such stretch.
+///
+/// The polygons are in world coordinates and counter-clockwise; each pose is
+/// the one that placed its piece.
+pub fn seam_step(
+    world_a: &[Vec2],
+    roof_a: &Roof,
+    pose_a: &Pose,
+    world_b: &[Vec2],
+    roof_b: &Roof,
+    pose_b: &Pose,
+    length_tolerance: f64,
+) -> f64 {
+    let (n, m) = (world_a.len(), world_b.len());
+    let mut worst: f64 = 0.0;
+    for i in 0..n {
+        let (a0, a1) = (world_a[i], world_a[(i + 1) % n]);
+        let length = (a1[0] - a0[0]).hypot(a1[1] - a0[1]);
+        let u = [(a1[0] - a0[0]) / length, (a1[1] - a0[1]) / length];
+        // Position of a point along this edge, and its distance off the edge's line.
+        let along = |p: Vec2| u[0] * (p[0] - a0[0]) + u[1] * (p[1] - a0[1]);
+        let off = |p: Vec2| (u[0] * (p[1] - a0[1]) - u[1] * (p[0] - a0[0])).abs();
+        for j in 0..m {
+            let (b0, b1) = (world_b[j], world_b[(j + 1) % m]);
+            // A neighbour's edge on the same line runs the other way.
+            let (start, end) = (along(b1), along(b0));
+            if end <= start || off(b0) > length_tolerance || off(b1) > length_tolerance {
+                continue;
+            }
+            let (from, to) = (start.max(0.0), end.min(length));
+            if to - from <= length_tolerance {
+                continue;
+            }
+            let at = |t: f64| [a0[0] + t * u[0], a0[1] + t * u[1]];
+            worst = worst.max(seam_mismatch(
+                roof_a,
+                pose_a,
+                roof_b,
+                pose_b,
+                at(from),
+                at(to),
+            ));
+        }
+    }
+    worst
+}
+
 /// `(g_a - g_b) . v` for the unit direction `v` of the world segment `p0`–`p1`:
 /// how fast the two roofs drift apart along it, in mm per mm. Zero is necessary
 /// for the roofs to agree along the segment, and it needs no polygon work, so

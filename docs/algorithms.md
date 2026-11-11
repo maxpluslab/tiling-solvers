@@ -262,3 +262,79 @@ What the tables say:
 - **What is left.** The two 16-piece footprints are hard for every configuration tried. Their searches die five or six pieces deep, in states no present rule recognises as dead when they are created. That is where learning from dead ends, or a rule that sees further, would have to show its worth.
 
 These are eight constructions. They are enough to say what happens on this corpus and not enough to say why; the difficulty proxies of phase 7 are meant for that.
+
+## Choosing from a list (CP-SAT)
+
+`cp_sat.placements` is a solver of another kind. It knows no geometry: it is handed a finite list of placements and what they exclude among themselves, and chooses. The list and the exclusions are built in Rust (`tiling-search::enumerate`, `tiling-geometry::conflict`) in one call; the choosing is OR-Tools CP-SAT with one worker and no objective, asked for every solution.
+
+### The list
+
+The placements are the ones the corner search puts down anywhere in its tree: the *reachable* placements, with the tolerances of `rust.contact_dfs` and with the listing rules (`anchor`, `cavity_pruning`, `closure_pruning`, `tray_rotations`) the options name. Every assembly that search finds is made of placements it made on the way, so choosing from the list loses none of them. A rule that is off makes the tree larger and the list longer, and by the arguments for the rules adds no assembly.
+
+Two things make this the list to use.
+
+*It is short.* The search puts the same placement down in many states. The table below has the counts: a tree of a million nodes holds some ten or twenty thousand distinct placements, and the small footprints a few dozen to a few thousand.
+
+*A list built without a search is not.* The first attempt closed the contacts under themselves: start from the placements against the tray's corners, and add every placement that makes a corner contact with one already listed. That forgets which pieces a chain of contacts has used and whether its members could stand together. On the six-piece `new5-flat` it had passed 3 000 placements with 177 of them expanded and was still growing; the reachable list for that puzzle is 59.
+
+The price is that the list costs one whole search, and that the solver can find nothing the search has no placements for. What it adds is a second route to the same assemblies. The model is built from pairwise geometry, and CP-SAT shares none of the search's bookkeeping of what is placed, its pruning, or its removal of repeats. And it measures something the search cannot: how hard the choice is once the geometry is out of it.
+
+Congruent pieces share their placements. A placement belongs to a class of congruent pieces, not to a piece, and a class of k pieces takes k of them. That removes the exchange of twins from the model the way the candidate generator removes it from the search.
+
+### The model
+
+One Boolean per placement, and:
+
+- **each class takes as many placements as it has pieces**;
+- **at most one** of any set of placements that conflict pairwise;
+- with `coverage`, **at least one** of the placements that reach each probe point of the target.
+
+**Why a choice is an assembly.** Every listed placement lies inside the target. If no two chosen placements overlap, and the areas of the pieces add up to the target's, the chosen pieces cover it. In relief, a conflict is also a step between the roofs of two placements along a stretch of edge they share, so a choice without conflict has continuous roofs. If the areas do not add up, no choice is an assembly and the model is made infeasible outright. All of this is about exact figures; the code is `f64` with tolerances, and the validator has the last word.
+
+**Conflicts as cliques.** About a third of all pairs of listed placements overlap: millions of pairs on the larger puzzles. Most of them are stated without being listed. Take a point. The placements that hold it well inside them, by a margin of sixteen length tolerances, overlap one another pairwise, so "at most one of these" states all of those pairs at once. The points are a 48 by 48 grid over the target's bounding box, shifted off any symmetric position. An overlap no grid point witnesses is listed as a pair, and so is a roof step.
+
+**Targeted probes** (`targeted_probes`, off by default). With this on, each overlapping pair the grid missed gets a point of its own, at the centroid of what the two share, and everything holding that point joins the clique. A pair is then listed only when that centroid is not well inside both, which means an overlap a few tolerances thin. It states the same exclusions in a different form: on `new2-flat`, 137 pairs and 17 062 cliques instead of 1 081 790 pairs and 1 971 cliques. It is off because the form is worse for CP-SAT; the numbers are below.
+
+**Coverage** (`coverage`, on by default). A point of the target lies in some piece of any assembly, so of the placements that reach a grid point, the boundary counted, an assembly holds at least one. These constraints follow from the others and the areas, and exclude nothing. They are in the model because pairwise exclusion says only what cannot go together. Left with that, a solver that knows no geometry finds out that a partial choice leaves a hole no remaining placement fits by trying the rest. The "at least one" constraints let unit propagation see it: when every placement reaching a point is excluded, the choice is dead.
+
+**The tray's rotations.** With `tray_rotations=once` a choice and its images under the tray's rotations are one assembly. Rust reports, for each rotation, which listed placement each placement becomes, if any. A choice is named by the least of its images, and one whose name was seen before is counted in `duplicates` and not returned. With the anchor on, the list mostly holds one orientation only and there is little to discard.
+
+### What the choosing costs
+
+Whole runs to the end, default options except where the column says. Counts are deterministic for one OR-Tools version (9.15 here). "Search nodes" is the listing search, which is the default `rust.contact_dfs` search of the earlier table.
+
+**With roofs.** Every relief fixture: 25 to 93 placements listed, one fewer than the nodes of the listing search or close to it, and CP-SAT returns the one assembly with no branch and no conflict, with coverage or without.
+
+**Without roofs:**
+
+| Fixture | Pieces | Assemblies | Search nodes | Placements | Cliques | Pairs | Branches | Conflicts |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `new5-flat` | 6 | 1 | 90 | 59 | 274 | 38 | 0 | 0 |
+| `new3-flat` | 9 | 1 | 6 104 | 1 395 | 2 135 | 10 536 | 0 | 0 |
+| `new4-flat` | 9 | 1 | 510 | 244 | 531 | 810 | 0 | 0 |
+| `rev2-flat` | 9 | 1 | 45 | 44 | 297 | 10 | 0 | 0 |
+| `rat1-flat` | 11 | 101 | 17 425 | 2 195 | 2 186 | 36 439 | 2 215 | 19 |
+| `new1-flat` | 16 | 1 | 1 064 878 | 25 233 | 2 274 | 4 710 195 | 169 941 | 297 |
+| `new2-flat` | 16 | 1 | 909 750 | 11 537 | 1 971 | 1 081 790 | 0 | 0 |
+| `rat2-flat` | 20 | 2 | 128 230 | 24 868 | 2 301 | 4 850 911 | 597 140 | 2 048 |
+
+**Without coverage** (`coverage=false`), the four smallest footprints are still settled with no branch. `rat1-flat` is not: after 60 s CP-SAT had made 2 716 185 branches and 301 706 conflicts, had returned all 101 assemblies, and had not shown there is no other. With coverage the same model takes 19 conflicts and under a second.
+
+**With targeted probes** (`targeted_probes=true`, coverage on), the three largest:
+
+| Fixture | Cliques | Pairs | Branches | Conflicts | Listing | CP-SAT | Grid only: listing | Grid only: CP-SAT |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `new2-flat` | 17 062 | 137 | 0 | 0 | 30 s | 17 s | 18 s | 5 s |
+| `new1-flat` | 34 368 | 249 | 0 | 0 | 109 s | 131 s | 32 s | 64 s |
+| `rat2-flat` | 117 461 | 14 633 | 740 692 | 2 098 | 303 s | 494 s | 13 s | 58 s |
+
+Times are from one quiet machine and indicative only. "Listing" is the search and the conflict computation together.
+
+What the tables say, relative to the listed placements and in `f64` with tolerances:
+
+- **Under roofs there is nothing to choose.** The list is hardly longer than the assembly, and propagation alone settles it. This is the relief finding of the search again, from the other side.
+- **Once the placements are listed, the choice is easy.** The search needs a million nodes for `new1-flat` and `new2-flat`. The same puzzles, as a choice among the 25 233 and 11 537 placements that search touched, take 297 conflicts and none. A million nodes are those few thousand placements met again and again in different company, and each time the search works out afresh that they do not fit. What makes these puzzles hard for the search is not the number of ways to combine placements; it is that the search does not remember, or see ahead, which combinations are dead.
+- **Coverage is what makes it easy.** Pairwise exclusion alone leaves CP-SAT worse off than the search on `rat1-flat`. The constraint that every point of the tray is reached by some chosen placement is redundant for correctness and decisive for the work. It is a global statement of what the search's corner rule says locally: this spot must be filled, and these are the only placements that can fill it.
+- **Many assemblies cost more than one.** The conflicts go to `rat1-flat` (101 assemblies), `rat2-flat` (2) and `new1-flat`; the other five footprints are settled by propagation and decisions that never fail. For the search it is the other way round: `rat2-flat` is cheap and the unique 16-piece puzzles are dear.
+- **Stating overlaps more cleverly did not help.** Targeted probes remove nearly every listed pair and make every run slower, `rat2-flat` by a factor of ten. The cliques they add are large and many, and the solver spends its time on them. The switch stays, off, with these numbers.
+- **The list is the cost.** `cp_sat.placements` cannot be quicker than the search that builds its list, and on the three largest footprints it takes from a third longer to nearly twenty times as long in all. Its use is as a check and as a measurement, and as a pointer: a search that kept coverage-style reasons for its dead ends, or learned from them as CP-SAT does, is the thing to try on the 16-piece footprints.

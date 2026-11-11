@@ -57,7 +57,7 @@ use tiling_geometry::{
     Shape, centroid, least_width, signed_area, transform,
 };
 
-use crate::canonical::Symmetry;
+use crate::canonical::{Placement, Symmetry};
 
 /// What to do about assemblies that are turns of one another.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -91,6 +91,11 @@ pub struct Options {
     pub order: Order,
     /// For [`Order::Random`].
     pub seed: u64,
+    /// Keep every distinct placement the search puts down, for
+    /// [`Outcome::placements`].
+    pub collect_placements: bool,
+    /// Stop once this many distinct placements have been collected.
+    pub max_placements: Option<usize>,
 }
 
 /// The order in which the candidates of a node are tried. It decides how soon
@@ -119,6 +124,8 @@ impl Default for Options {
             lookahead: false,
             order: Order::MatchedEdges,
             seed: 0,
+            collect_placements: false,
+            max_placements: None,
         }
     }
 }
@@ -163,6 +170,47 @@ pub struct Outcome {
     pub tray_order: usize,
     /// The piece held to one sector, if any was.
     pub anchor: Option<usize>,
+    /// Every distinct placement the search put down, in the order first met.
+    /// Empty unless [`Options::collect_placements`].
+    pub placements: Vec<Placement>,
+}
+
+/// The distinct placements met so far.
+///
+/// Looked up by the cell of a coarse grid the centroid falls in and its
+/// neighbours, then compared with the search's tolerances, so that a placement
+/// on a cell boundary is still recognised.
+#[derive(Default)]
+struct Collected {
+    placements: Vec<Placement>,
+    cells: HashMap<(usize, i64, i64), Vec<u32>>,
+}
+
+impl Collected {
+    /// Millimetres. Far above the tolerance, far below the size of a piece.
+    const CELL: f64 = 0.01;
+
+    fn add(&mut self, symmetry: &Symmetry, placement: Placement) {
+        let cell = |v: f64| (v / Self::CELL).floor() as i64;
+        let (cx, cy) = (cell(placement.x), cell(placement.y));
+        for dx in -1..=1 {
+            for dy in -1..=1 {
+                let known = self.cells.get(&(placement.class, cx + dx, cy + dy));
+                if known.is_some_and(|ids| {
+                    ids.iter().any(|&id| {
+                        symmetry.same_placement(&self.placements[id as usize], &placement)
+                    })
+                }) {
+                    return;
+                }
+            }
+        }
+        self.cells
+            .entry((placement.class, cx, cy))
+            .or_default()
+            .push(self.placements.len() as u32);
+        self.placements.push(placement);
+    }
 }
 
 /// Steps a question about areas may take before it is answered "perhaps".
@@ -405,6 +453,7 @@ struct Search<'a> {
     first_solution: Option<Duration>,
     stopped: bool,
     random: Random,
+    collected: Collected,
 }
 
 impl Search<'_> {
@@ -704,6 +753,18 @@ impl Search<'_> {
             }
         }
         for candidate in candidates {
+            if self.options.collect_placements {
+                let placement = self.symmetry.placement(candidate.piece, &candidate.pose);
+                self.collected.add(&self.symmetry, placement);
+                if self
+                    .options
+                    .max_placements
+                    .is_some_and(|most| self.collected.placements.len() > most)
+                {
+                    self.stopped = true;
+                    return;
+                }
+            }
             self.assembly
                 .place(candidate.piece, candidate.pose)
                 .expect("a proposed piece is free");
@@ -789,6 +850,7 @@ pub fn solve(
         stopped: false,
         random: Random(options.seed),
         symmetry,
+        collected: Collected::default(),
     };
     search.expand();
     search.stats.candidates = search.assembly.stats();
@@ -800,6 +862,7 @@ pub fn solve(
         first_solution: search.first_solution,
         tray_order: search.symmetry.tray_order(),
         anchor,
+        placements: search.collected.placements,
     })
 }
 

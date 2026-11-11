@@ -38,7 +38,7 @@ use crate::cavity::{Cavity, cavities};
 use crate::contact::{ContactTolerance, Corner, EdgeRef, free_corners, pose_at_corner};
 use crate::graph::{EdgeGraph, Shape};
 use crate::polygon::{is_convex_ccw, outside_depth, transform};
-use crate::relief::{roof_height, seam_mismatch};
+use crate::relief::{roof_height, seam_step};
 use crate::sat::penetration_depth;
 
 /// One way to put a piece down, and the contact that produced it.
@@ -298,7 +298,6 @@ impl Assembly {
             return 0.0;
         };
         let reach = bounds(world);
-        let n = world.len();
         let mut worst: f64 = 0.0;
         for &other in &self.stack {
             let Some(other_roof) = &self.shapes[other].roof else {
@@ -311,39 +310,15 @@ impl Assembly {
             else {
                 continue;
             };
-            let m = other_world.len();
-            for i in 0..n {
-                let (a0, a1) = (world[i], world[(i + 1) % n]);
-                let length = (a1[0] - a0[0]).hypot(a1[1] - a0[1]);
-                let u = [(a1[0] - a0[0]) / length, (a1[1] - a0[1]) / length];
-                for j in 0..m {
-                    let (b0, b1) = (other_world[j], other_world[(j + 1) % m]);
-                    // Position of a point along this edge, and its distance off the edge's line.
-                    let along = |p: Vec2| u[0] * (p[0] - a0[0]) + u[1] * (p[1] - a0[1]);
-                    let off = |p: Vec2| (u[0] * (p[1] - a0[1]) - u[1] * (p[0] - a0[0])).abs();
-                    // A neighbour's edge on the same line runs the other way.
-                    let (start, end) = (along(b1), along(b0));
-                    if end <= start
-                        || off(b0) > self.tolerance.length
-                        || off(b1) > self.tolerance.length
-                    {
-                        continue;
-                    }
-                    let (from, to) = (start.max(0.0), end.min(length));
-                    if to - from <= self.tolerance.length {
-                        continue;
-                    }
-                    let at = |t: f64| [a0[0] + t * u[0], a0[1] + t * u[1]];
-                    worst = worst.max(seam_mismatch(
-                        roof,
-                        pose,
-                        other_roof,
-                        other_pose,
-                        at(from),
-                        at(to),
-                    ));
-                }
-            }
+            worst = worst.max(seam_step(
+                world,
+                roof,
+                pose,
+                other_world,
+                other_roof,
+                other_pose,
+                self.tolerance.length,
+            ));
         }
         worst
     }

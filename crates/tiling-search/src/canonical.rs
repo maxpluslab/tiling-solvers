@@ -35,6 +35,20 @@ struct Seat {
     turn: f64,
 }
 
+/// One way of putting down a piece of a class, whichever member of the class
+/// it is and whichever of the turns onto itself it has: the seat, with the
+/// class it is a seat for.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Placement {
+    /// The class: its lowest-numbered piece.
+    pub class: usize,
+    /// The centroid of the placed piece, in the world.
+    pub x: f64,
+    pub y: f64,
+    /// The turn of the class's first piece that puts it there, in `[0, period)`.
+    pub turn: f64,
+}
+
 /// The symmetries of one puzzle: of its tray, and of and among its pieces.
 #[derive(Debug, Clone)]
 pub struct Symmetry {
@@ -88,6 +102,40 @@ impl Symmetry {
     /// The class of each piece: the lowest-numbered piece congruent to it.
     pub fn classes(&self) -> &[usize] {
         &self.classes
+    }
+
+    /// The placement that `piece` at `pose` is.
+    pub fn placement(&self, piece: usize, pose: &Pose) -> Placement {
+        let seat = self.seat(piece, pose);
+        Placement {
+            class: self.classes[piece],
+            x: seat.x,
+            y: seat.y,
+            turn: seat.turn,
+        }
+    }
+
+    /// A pose that puts `piece`, a member of the placement's class, there.
+    pub fn pose_for(&self, piece: usize, placement: &Placement) -> Pose {
+        debug_assert_eq!(self.classes[piece], placement.class);
+        self.pose(
+            piece,
+            &Seat {
+                x: placement.x,
+                y: placement.y,
+                turn: placement.turn,
+            },
+        )
+    }
+
+    /// Whether two placements put the same polygon in the same place.
+    pub fn same_placement(&self, a: &Placement, b: &Placement) -> bool {
+        let seat = |p: &Placement| Seat {
+            x: p.x,
+            y: p.y,
+            turn: p.turn,
+        };
+        a.class == b.class && self.compare(&seat(a), &seat(b)).is_eq()
     }
 
     /// A turn brought into `[0, period)`, with anything within the tolerance of
@@ -385,6 +433,41 @@ mod tests {
                 for (a, b) in span.iter().zip(want) {
                     assert!((a - b).abs() <= 1e-9, "{spans:?}");
                 }
+            }
+        }
+    }
+
+    #[test]
+    fn a_placement_is_the_same_for_twins_and_for_turns_onto_itself() {
+        // Two narrow strips, the second stored lying down, and a block.
+        let tray = vec![[0.0, 0.0], [4.0, 0.0], [4.0, 3.0], [0.0, 3.0]];
+        let pieces = vec![
+            rectangle(1.0, 3.0),
+            rectangle(3.0, 1.0),
+            rectangle(2.0, 3.0),
+        ];
+        let symmetry = symmetry_of(&tray, &pieces);
+        // Either strip standing against the left wall, either way up.
+        let first = symmetry.placement(0, &at(0.5, 1.5, 0.0));
+        assert_eq!(first.class, 0);
+        for (piece, theta) in [(0, PI), (1, FRAC_PI_2), (1, -FRAC_PI_2)] {
+            let other = symmetry.placement(piece, &at(0.5, 1.5, theta));
+            assert!(symmetry.same_placement(&first, &other), "{piece} {theta}");
+        }
+        // Not the strip one column along, nor the strip lying down, nor the block.
+        assert!(!symmetry.same_placement(&first, &symmetry.placement(0, &at(1.5, 1.5, 0.0))));
+        assert!(!symmetry.same_placement(&first, &symmetry.placement(0, &at(0.5, 1.5, 1.0))));
+        assert!(!symmetry.same_placement(&first, &symmetry.placement(2, &at(0.5, 1.5, 0.0))));
+        // A pose made for either member puts it over x in [0, 1], y in [0, 3].
+        for piece in [0, 1] {
+            let world = transform(&pieces[piece], &symmetry.pose_for(piece, &first));
+            for corner in [[0.0, 0.0], [1.0, 0.0], [1.0, 3.0], [0.0, 3.0]] {
+                assert!(
+                    world
+                        .iter()
+                        .any(|p| (p[0] - corner[0]).hypot(p[1] - corner[1]) <= 1e-9),
+                    "{piece}: {world:?}"
+                );
             }
         }
     }

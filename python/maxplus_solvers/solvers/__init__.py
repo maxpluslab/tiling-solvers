@@ -56,10 +56,12 @@ def get(name: str) -> SolverSpec:
 
 
 def _register_builtin() -> None:
-    from maxplus_solvers.solvers import contact_dfs
+    from maxplus_solvers.solvers import contact_dfs, cp_sat
     from maxplus_solvers.solvers.prototypes import contact_dfs as prototype
 
     register(contact_dfs.SPEC)
+    # Registering needs no OR-Tools; running does.
+    register(cp_sat.SPEC)
     register(prototype.SPEC)
 
 

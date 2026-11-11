@@ -135,6 +135,8 @@ Conflicts are precomputed by the Rust geometry. If all pieces lie inside the tar
 
 `INFEASIBLE` means infeasible within the generated candidate set, unless that set has been proven complete. The API preserves the distinction. Complete enumeration in CP-SAT cannot use an objective and runs with a single search worker.
 
+As built (phase 6), the candidate set is the placements the Rust contact search reaches, congruent pieces share their placements (a class of k pieces takes k of them), and conflicts are stated mostly as "at most one of the placements that hold this point" instead of pair by pair. Coverage constraints, "at least one of the placements that reach this point", are added although they follow from the rest: without them CP-SAT is far slower than the search. [algorithms.md](algorithms.md#choosing-from-a-list-cp-sat) has the model and the measurements.
+
 ## Python to Rust
 
 Algorithms are prototyped in Python without making Python-specific machinery part of the design: integer piece and candidate indices, typed state, reversible assignments, deterministic iteration. Prototypes call the same Rust geometry as production solvers, so porting replaces search state and control flow, not geometry.
