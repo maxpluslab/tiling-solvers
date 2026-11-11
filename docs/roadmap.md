@@ -10,8 +10,8 @@ Each phase is sized for one working session and ends with an exit criterion that
 | 3 | Rust geometry kernel | Done |
 | 4 | Contact candidates, Python prototype, solver contract | Done |
 | 5 | Rust contact DFS | Done |
-| 6 | CP-SAT backend | Next |
-| 7 | Benchmark and research platform | |
+| 6 | CP-SAT backend | Done |
+| 7 | Benchmark and research platform | Next |
 
 The source corpus is 8 constructions in two variants each (relief and flat), 16 puzzles of 6 to 20 convex pieces with 3 to 8 vertices, in a 144 mm square tray.
 
@@ -148,7 +148,7 @@ Done, with these decisions:
 
 **Exit:** CP-SAT and the Rust DFS produce the same canonical solution sets on every fixture where both exhaust.
 
-Decisions:
+Done, with these decisions:
 
 - The exit criterion is `tests/corpus/test_cp_sat.py`. On all 20 fixtures, in their own regimes, both solvers run to the end and return the same assemblies, compared as placed polygons by the test oracle and up to the tray's rotations; every one passes the validator. No fixture is left out.
 - The candidate set is the placements the corner search reaches (`corner-contact-reachable/1` and its relief variant), collected by running the search of `rust.contact_dfs` to its end. A set built without a search, by closing contacts under contacts, was tried first and does not stay small: over 3 000 placements and growing on a six-piece puzzle whose reachable list is 59.
