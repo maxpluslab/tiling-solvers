@@ -8,6 +8,8 @@
 //! to be convex and counter-clockwise, as everywhere else; only `is_convex_ccw`
 //! checks it. A polygon with fewer than three vertices is refused.
 
+use std::time::Duration;
+
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use tiling_core::{Pose, Roof, Vec2};
@@ -15,6 +17,8 @@ use tiling_core::{Pose, Roof, Vec2};
 type Point = (f64, f64);
 type PoseArg = (f64, f64, f64);
 type RoofArg = (f64, f64, f64);
+/// A cavity as `(area, least width if convex, corner indices)`.
+type CavityRow = (f64, Option<f64>, Vec<usize>);
 
 fn checked(polygon: Vec<[f64; 2]>) -> PyResult<Vec<Vec2>> {
     if polygon.len() < 3 {
@@ -344,6 +348,48 @@ struct Assembly {
     inner: tiling_geometry::Assembly,
 }
 
+/// The shapes and tolerances every assembly-level call takes.
+fn puzzle_parts(
+    pieces: Vec<Vec<[f64; 2]>>,
+    roofs: Option<Vec<RoofArg>>,
+    length_tol: f64,
+    angle_tol: f64,
+    slope_tol: f64,
+    height_tol: Option<f64>,
+) -> PyResult<(
+    Vec<tiling_geometry::Shape>,
+    tiling_geometry::ContactTolerance,
+)> {
+    if let Some(roofs) = &roofs {
+        if roofs.len() != pieces.len() {
+            return Err(PyValueError::new_err(format!(
+                "{} roofs for {} pieces",
+                roofs.len(),
+                pieces.len()
+            )));
+        }
+    }
+    let shapes = pieces
+        .into_iter()
+        .enumerate()
+        .map(|(i, polygon)| tiling_geometry::Shape {
+            polygon,
+            roof: roofs.as_ref().map(|r| roof_of(r[i])),
+        })
+        .collect();
+    let tolerance = tiling_geometry::ContactTolerance {
+        length: length_tol,
+        angle: angle_tol,
+        slope: slope_tol,
+        height: height_tol.unwrap_or(length_tol),
+    };
+    Ok((shapes, tolerance))
+}
+
+fn refused(error: tiling_geometry::AssemblyError) -> PyErr {
+    PyValueError::new_err(error.to_string())
+}
+
 impl Assembly {
     fn piece_index(&self, piece: usize) -> PyResult<usize> {
         if piece < self.inner.piece_count() {
@@ -383,7 +429,7 @@ impl Assembly {
 #[pymethods]
 impl Assembly {
     #[new]
-    #[pyo3(signature = (target, pieces, roofs=None, *, length_tol, angle_tol, slope_tol))]
+    #[pyo3(signature = (target, pieces, roofs=None, *, length_tol, angle_tol, slope_tol, height_tol=None))]
     fn new(
         target: Vec<[f64; 2]>,
         pieces: Vec<Vec<[f64; 2]>>,
@@ -391,32 +437,13 @@ impl Assembly {
         length_tol: f64,
         angle_tol: f64,
         slope_tol: f64,
+        height_tol: Option<f64>,
     ) -> PyResult<Assembly> {
-        if let Some(roofs) = &roofs {
-            if roofs.len() != pieces.len() {
-                return Err(PyValueError::new_err(format!(
-                    "{} roofs for {} pieces",
-                    roofs.len(),
-                    pieces.len()
-                )));
-            }
-        }
-        let shapes = pieces
-            .into_iter()
-            .enumerate()
-            .map(|(i, polygon)| tiling_geometry::Shape {
-                polygon,
-                roof: roofs.as_ref().map(|r| roof_of(r[i])),
-            })
-            .collect();
-        let tolerance = tiling_geometry::ContactTolerance {
-            length: length_tol,
-            angle: angle_tol,
-            slope: slope_tol,
-        };
+        let (shapes, tolerance) =
+            puzzle_parts(pieces, roofs, length_tol, angle_tol, slope_tol, height_tol)?;
         tiling_geometry::Assembly::new(target, shapes, tolerance)
             .map(|inner| Assembly { inner })
-            .map_err(|error| PyValueError::new_err(error.to_string()))
+            .map_err(refused)
     }
 
     #[getter]
@@ -559,15 +586,244 @@ impl Assembly {
         })
     }
 
-    /// Candidate work so far as `(generated, rejected_outside, rejected_overlap)`.
-    fn stats(&self) -> (u64, u64, u64) {
+    /// The largest step between this piece's roof, placed so, and the roofs of
+    /// the placed pieces along the edges it shares with them, in mm.
+    fn roof_step(&self, piece: usize, pose: PoseArg) -> PyResult<f64> {
+        self.inner.roof_step(piece, &pose_of(pose)).map_err(refused)
+    }
+
+    /// The separate parts of the uncovered region, each as `(area, width,
+    /// corners)`: its area in mm², its least width if it is convex, and the
+    /// indices of its corners in `frontier()`, counter-clockwise. `None` if the
+    /// corners do not link up into closed outlines.
+    fn cavities(&self) -> Option<Vec<CavityRow>> {
+        let corners = self.inner.frontier();
+        Some(
+            self.inner
+                .cavities(&corners)?
+                .into_iter()
+                .map(|c| (c.area, c.width, c.corners))
+                .collect(),
+        )
+    }
+
+    /// Candidate work so far as `(generated, rejected_outside,
+    /// rejected_overlap, rejected_roof)`.
+    fn stats(&self) -> (u64, u64, u64, u64) {
         let stats = self.inner.stats();
         (
             stats.generated,
             stats.rejected_outside,
             stats.rejected_overlap,
+            stats.rejected_roof,
         )
     }
+}
+
+fn symmetry_of(
+    target: &[Vec2],
+    shapes: &[tiling_geometry::Shape],
+    tolerance: &tiling_geometry::ContactTolerance,
+    poses: &[&Vec<PoseArg>],
+) -> PyResult<tiling_search::Symmetry> {
+    // Building an assembly checks the polygons and the tolerances.
+    let assembly = tiling_geometry::Assembly::new(target.to_vec(), shapes.to_vec(), *tolerance)
+        .map_err(refused)?;
+    for given in poses {
+        if given.len() != shapes.len() {
+            return Err(PyValueError::new_err(format!(
+                "{} poses for {} pieces",
+                given.len(),
+                shapes.len()
+            )));
+        }
+    }
+    Ok(tiling_search::Symmetry::new(
+        target,
+        shapes,
+        assembly.graph(),
+        tolerance,
+    ))
+}
+
+/// The canonical form of an assembly: one pose per piece, the same for every
+/// assembly that differs only by exchanging congruent pieces, turning a piece
+/// onto itself, or turning the tray onto itself.
+#[pyfunction]
+#[pyo3(signature = (target, pieces, roofs, poses, *, length_tol, angle_tol, slope_tol, height_tol=None))]
+#[allow(clippy::too_many_arguments)]
+fn canonical_poses(
+    target: Vec<[f64; 2]>,
+    pieces: Vec<Vec<[f64; 2]>>,
+    roofs: Option<Vec<RoofArg>>,
+    poses: Vec<PoseArg>,
+    length_tol: f64,
+    angle_tol: f64,
+    slope_tol: f64,
+    height_tol: Option<f64>,
+) -> PyResult<Vec<PoseArg>> {
+    let (shapes, tolerance) =
+        puzzle_parts(pieces, roofs, length_tol, angle_tol, slope_tol, height_tol)?;
+    let symmetry = symmetry_of(&target, &shapes, &tolerance, &[&poses])?;
+    let poses: Vec<Pose> = poses.into_iter().map(pose_of).collect();
+    Ok(symmetry
+        .canonical(&poses)
+        .into_iter()
+        .map(|p| (p.x, p.y, p.theta))
+        .collect())
+}
+
+/// Whether two assemblies of one puzzle have the same canonical form.
+#[pyfunction]
+#[pyo3(signature = (target, pieces, roofs, first, second, *, length_tol, angle_tol, slope_tol, height_tol=None))]
+#[allow(clippy::too_many_arguments)]
+fn same_assembly(
+    target: Vec<[f64; 2]>,
+    pieces: Vec<Vec<[f64; 2]>>,
+    roofs: Option<Vec<RoofArg>>,
+    first: Vec<PoseArg>,
+    second: Vec<PoseArg>,
+    length_tol: f64,
+    angle_tol: f64,
+    slope_tol: f64,
+    height_tol: Option<f64>,
+) -> PyResult<bool> {
+    let (shapes, tolerance) =
+        puzzle_parts(pieces, roofs, length_tol, angle_tol, slope_tol, height_tol)?;
+    let symmetry = symmetry_of(&target, &shapes, &tolerance, &[&first, &second])?;
+    let first: Vec<Pose> = first.into_iter().map(pose_of).collect();
+    let second: Vec<Pose> = second.into_iter().map(pose_of).collect();
+    Ok(symmetry.same(&first, &second))
+}
+
+/// What `contact_dfs` found, and the work it took.
+#[pyclass(frozen, get_all, module = "maxplus_solvers._native")]
+struct ContactDfsOutcome {
+    /// One list of poses per solution, in piece order.
+    solutions: Vec<Vec<PoseArg>>,
+    exhausted: bool,
+    nodes: u64,
+    backtracks: u64,
+    placements: u64,
+    max_depth: u64,
+    candidates_generated: u64,
+    rejected_outside: u64,
+    rejected_overlap: u64,
+    rejected_roof: u64,
+    pruned_cavity: u64,
+    pruned_closure: u64,
+    pruned_anchor: u64,
+    pruned_lookahead: u64,
+    duplicates: u64,
+    cavities_unknown: u64,
+    wall_time_s: f64,
+    first_solution_s: Option<f64>,
+    tray_order: usize,
+    anchor: Option<usize>,
+}
+
+/// The whole contact search, run to completion in Rust without the interpreter lock.
+#[pyfunction]
+#[pyo3(signature = (
+    target, pieces, roofs=None, *,
+    length_tol, angle_tol, slope_tol, height_tol=None,
+    max_solutions=Some(1), time_limit_s=None, node_limit=None,
+    all_tray_rotations=false, anchor=true, cavity_pruning=true, closure_pruning=true, lookahead=false,
+    order="matched-edges", seed=0,
+))]
+#[allow(clippy::too_many_arguments)]
+fn contact_dfs(
+    py: Python<'_>,
+    target: Vec<[f64; 2]>,
+    pieces: Vec<Vec<[f64; 2]>>,
+    roofs: Option<Vec<RoofArg>>,
+    length_tol: f64,
+    angle_tol: f64,
+    slope_tol: f64,
+    height_tol: Option<f64>,
+    max_solutions: Option<usize>,
+    time_limit_s: Option<f64>,
+    node_limit: Option<u64>,
+    all_tray_rotations: bool,
+    anchor: bool,
+    cavity_pruning: bool,
+    closure_pruning: bool,
+    lookahead: bool,
+    order: &str,
+    seed: u64,
+) -> PyResult<ContactDfsOutcome> {
+    use tiling_search::contact_dfs::{Options, Order, TrayRotations, solve};
+
+    let order = match order {
+        "generated" => Order::Generated,
+        "matched-edges" => Order::MatchedEdges,
+        "random" => Order::Random,
+        other => {
+            return Err(PyValueError::new_err(format!(
+                "order must be generated, matched-edges or random, not {other:?}"
+            )));
+        }
+    };
+
+    let (shapes, tolerance) =
+        puzzle_parts(pieces, roofs, length_tol, angle_tol, slope_tol, height_tol)?;
+    let time_limit = match time_limit_s {
+        None => None,
+        Some(seconds) if seconds.is_finite() && seconds >= 0.0 => {
+            Some(Duration::from_secs_f64(seconds))
+        }
+        Some(_) => {
+            return Err(PyValueError::new_err(
+                "time_limit_s must be finite and not negative",
+            ));
+        }
+    };
+    let options = Options {
+        max_solutions,
+        time_limit,
+        node_limit,
+        tray_rotations: if all_tray_rotations {
+            TrayRotations::All
+        } else {
+            TrayRotations::Once
+        },
+        anchor,
+        cavity_pruning,
+        closure_pruning,
+        lookahead,
+        order,
+        seed,
+    };
+    let outcome = py
+        .detach(|| solve(target, shapes, tolerance, &options))
+        .map_err(refused)?;
+    let stats = outcome.stats;
+    Ok(ContactDfsOutcome {
+        solutions: outcome
+            .solutions
+            .into_iter()
+            .map(|poses| poses.into_iter().map(|p| (p.x, p.y, p.theta)).collect())
+            .collect(),
+        exhausted: outcome.exhausted,
+        nodes: stats.nodes,
+        backtracks: stats.backtracks,
+        placements: stats.placements,
+        max_depth: stats.max_depth,
+        candidates_generated: stats.candidates.generated,
+        rejected_outside: stats.candidates.rejected_outside,
+        rejected_overlap: stats.candidates.rejected_overlap,
+        rejected_roof: stats.candidates.rejected_roof,
+        pruned_cavity: stats.pruned_cavity,
+        pruned_closure: stats.pruned_closure,
+        pruned_anchor: stats.pruned_anchor,
+        pruned_lookahead: stats.pruned_lookahead,
+        duplicates: stats.duplicates,
+        cavities_unknown: stats.cavities_unknown,
+        wall_time_s: outcome.elapsed.as_secs_f64(),
+        first_solution_s: outcome.first_solution.map(|d| d.as_secs_f64()),
+        tray_order: outcome.tray_order,
+        anchor: outcome.anchor,
+    })
 }
 
 #[pymodule]
@@ -594,5 +850,9 @@ fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Candidate>()?;
     m.add_class::<PlacementCheck>()?;
     m.add_class::<Assembly>()?;
+    m.add_function(wrap_pyfunction!(canonical_poses, m)?)?;
+    m.add_function(wrap_pyfunction!(same_assembly, m)?)?;
+    m.add_function(wrap_pyfunction!(contact_dfs, m)?)?;
+    m.add_class::<ContactDfsOutcome>()?;
     Ok(())
 }

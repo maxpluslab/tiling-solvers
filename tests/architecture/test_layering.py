@@ -122,12 +122,78 @@ def test_solvers_are_registered_under_the_family_they_live_in() -> None:
         spec = solvers.get(name)
         family, _, algorithm = name.partition(".")
         assert family and algorithm, name
-        assert spec.regimes and spec.candidate_set and spec.description, name
+        assert spec.regimes and all(spec.candidate_sets.values()) and spec.description, name
         module = spec.run.__module__
         if family == "python":
             assert module == f"maxplus_solvers.solvers.prototypes.{algorithm}", name
+        else:
+            assert family == "rust", name
+            assert module == f"maxplus_solvers.solvers.{algorithm}", name
         contract = (ROOT / "docs" / "solver-contract.md").read_text(encoding="utf-8")
-        assert f"`{name}`" in contract and f"`{spec.candidate_set}`" in contract, name
+        assert f"`{name}`" in contract, name
+        for candidate_set in spec.candidate_sets.values():
+            assert f"`{candidate_set}`" in contract, (name, candidate_set)
+
+
+def native_calls(tree: ast.AST) -> list[str]:
+    """Names of the ``_native`` functions called under ``tree``, once per call."""
+    return [
+        node.func.attr
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and isinstance(node.func.value, ast.Name)
+        and node.func.value.id == "_native"
+    ]
+
+
+def test_production_solvers_cross_into_rust_once_per_solve() -> None:
+    """A solver outside ``prototypes`` hands the instance over and gets the answer back.
+
+    Its module makes one ``_native`` call that does work, outside any loop.
+    Reading the version is not work. The prototype is the counter-example
+    that shows the check sees calls: it drives ``_native`` step by step.
+    """
+    loops = (ast.For, ast.While, ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)
+    solvers_dir = PACKAGE / "solvers"
+    production = [p for p in sorted(solvers_dir.glob("*.py")) if p.name != "__init__.py"]
+    assert [p.name for p in production] == ["contact_dfs.py"], "a new solver: is it checked?"
+    for path in production:
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        work = [name for name in native_calls(tree) if name != "version"]
+        assert len(work) == 1, (path.name, work)
+        for node in ast.walk(tree):
+            if isinstance(node, loops):
+                assert not native_calls(node), f"{path.name} calls _native in a loop"
+
+    prototype = ast.parse((solvers_dir / "prototypes" / "contact_dfs.py").read_text("utf-8"))
+    assert len(native_calls(prototype)) >= 1
+    stepwise = [
+        call
+        for node in ast.walk(prototype)
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+        for call in [node.func.attr]
+        if call in {"propose", "place", "undo", "frontier"}
+    ]
+    assert len(stepwise) >= 4, "the prototype no longer steps through the search"
+
+
+def test_every_search_rule_is_a_documented_switch() -> None:
+    """The rules of ``rust.contact_dfs`` can be turned off, and the documents say what each is.
+
+    The measurements are the product: an option nobody can find, or a rule
+    without an ablation row, is a rule whose effect is not known.
+    """
+    from maxplus_solvers.solvers import contact_dfs
+
+    switches = {name for name, default in contact_dfs.DEFAULTS.items() if isinstance(default, bool)}
+    assert {"anchor", "cavity_pruning", "closure_pruning", "lookahead"} <= switches
+    contract = (ROOT / "docs" / "solver-contract.md").read_text(encoding="utf-8")
+    algorithms = (ROOT / "docs" / "algorithms.md").read_text(encoding="utf-8")
+    for option in contact_dfs.DEFAULTS:
+        assert f"| `{option}` |" in contract, f"{option} is not in the options table"
+    for switch in switches:
+        assert f"`{switch}`" in algorithms, f"{switch} has no place in algorithms.md"
 
 
 def test_importing_the_package_does_not_need_the_optional_extras() -> None:

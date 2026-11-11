@@ -34,9 +34,11 @@ use std::fmt;
 
 use tiling_core::{Pose, Vec2};
 
+use crate::cavity::{Cavity, cavities};
 use crate::contact::{ContactTolerance, Corner, EdgeRef, free_corners, pose_at_corner};
 use crate::graph::{EdgeGraph, Shape};
 use crate::polygon::{is_convex_ccw, outside_depth, transform};
+use crate::relief::{roof_height, seam_mismatch};
 use crate::sat::penetration_depth;
 
 /// One way to put a piece down, and the contact that produced it.
@@ -76,6 +78,32 @@ pub struct CandidateStats {
     pub rejected_outside: u64,
     /// Of the rest, rejected for entering a placed piece.
     pub rejected_overlap: u64,
+    /// Rejected because the roof would not meet a neighbour's: at the corner
+    /// before the other checks, or along a shared edge after them. Always zero
+    /// for pieces without roofs.
+    pub rejected_roof: u64,
+}
+
+/// Smallest axis-aligned box around a polygon, as `[min x, min y, max x, max y]`.
+fn bounds(polygon: &[Vec2]) -> [f64; 4] {
+    let mut b = [
+        f64::INFINITY,
+        f64::INFINITY,
+        f64::NEG_INFINITY,
+        f64::NEG_INFINITY,
+    ];
+    for p in polygon {
+        b[0] = b[0].min(p[0]);
+        b[1] = b[1].min(p[1]);
+        b[2] = b[2].max(p[0]);
+        b[3] = b[3].max(p[1]);
+    }
+    b
+}
+
+/// Whether two boxes are further apart than `slack` along an axis.
+fn apart(a: &[f64; 4], b: &[f64; 4], slack: f64) -> bool {
+    a[2] + slack < b[0] || b[2] + slack < a[0] || a[3] + slack < b[1] || b[3] + slack < a[1]
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -117,6 +145,7 @@ pub struct Assembly {
     tolerance: ContactTolerance,
     poses: Vec<Option<Pose>>,
     world: Vec<Option<Vec<Vec2>>>,
+    boxes: Vec<[f64; 4]>,
     /// Placed pieces, oldest first.
     stack: Vec<usize>,
     stats: CandidateStats,
@@ -129,7 +158,15 @@ impl Assembly {
         tolerance: ContactTolerance,
     ) -> Result<Assembly, AssemblyError> {
         let positive = |v: f64| v.is_finite() && v > 0.0;
-        if !(positive(tolerance.length) && positive(tolerance.angle) && positive(tolerance.slope)) {
+        if ![
+            tolerance.length,
+            tolerance.angle,
+            tolerance.slope,
+            tolerance.height,
+        ]
+        .into_iter()
+        .all(positive)
+        {
             return Err(AssemblyError::BadTolerance);
         }
         if !is_convex_ccw(&target) {
@@ -147,6 +184,7 @@ impl Assembly {
             tolerance,
             poses: vec![None; count],
             world: vec![None; count],
+            boxes: vec![[0.0; 4]; count],
             stack: Vec::with_capacity(count),
             stats: CandidateStats::default(),
         })
@@ -185,6 +223,11 @@ impl Assembly {
         self.poses.get(piece).copied().flatten()
     }
 
+    /// A placed piece's polygon in the world.
+    pub fn world(&self, piece: usize) -> Option<&[Vec2]> {
+        self.world.get(piece)?.as_deref()
+    }
+
     pub fn all_placed(&self) -> bool {
         self.stack.len() == self.shapes.len()
     }
@@ -198,7 +241,9 @@ impl Assembly {
         if self.poses[piece].is_some() {
             return Err(AssemblyError::AlreadyPlaced(piece));
         }
-        self.world[piece] = Some(transform(&self.shapes[piece].polygon, &pose));
+        let world = transform(&self.shapes[piece].polygon, &pose);
+        self.boxes[piece] = bounds(&world);
+        self.world[piece] = Some(world);
         self.poses[piece] = Some(pose);
         self.stack.push(piece);
         Ok(())
@@ -225,6 +270,93 @@ impl Assembly {
     /// Empty exactly when the placed pieces cover the target.
     pub fn frontier(&self) -> Vec<Corner> {
         free_corners(&self.target, &self.placed_polygons(), &self.tolerance)
+    }
+
+    /// The separate parts of the uncovered region whose corners are `corners`,
+    /// which must be this state's [`Assembly::frontier`]. `None` if they do not
+    /// link up; see [`cavities`].
+    pub fn cavities(&self, corners: &[Corner]) -> Option<Vec<Cavity>> {
+        cavities(corners, &self.tolerance)
+    }
+
+    /// The largest step between the roof of `piece`, placed at `pose`, and the
+    /// roofs of the placed pieces, along the stretches of edge it shares with
+    /// them. Zero for a piece without a roof, or one that shares no edge.
+    ///
+    /// Two roofs are planes, so the step along a shared stretch is largest at
+    /// one of its ends, and those are the only points measured.
+    pub fn roof_step(&self, piece: usize, pose: &Pose) -> Result<f64, AssemblyError> {
+        let shape = self
+            .shapes
+            .get(piece)
+            .ok_or(AssemblyError::NoSuchPiece(piece))?;
+        Ok(self.roof_step_of(piece, pose, &transform(&shape.polygon, pose)))
+    }
+
+    fn roof_step_of(&self, piece: usize, pose: &Pose, world: &[Vec2]) -> f64 {
+        let Some(roof) = &self.shapes[piece].roof else {
+            return 0.0;
+        };
+        let reach = bounds(world);
+        let n = world.len();
+        let mut worst: f64 = 0.0;
+        for &other in &self.stack {
+            let Some(other_roof) = &self.shapes[other].roof else {
+                continue;
+            };
+            if other == piece || apart(&reach, &self.boxes[other], self.tolerance.length) {
+                continue;
+            }
+            let (Some(other_world), Some(other_pose)) = (&self.world[other], &self.poses[other])
+            else {
+                continue;
+            };
+            let m = other_world.len();
+            for i in 0..n {
+                let (a0, a1) = (world[i], world[(i + 1) % n]);
+                let length = (a1[0] - a0[0]).hypot(a1[1] - a0[1]);
+                let u = [(a1[0] - a0[0]) / length, (a1[1] - a0[1]) / length];
+                for j in 0..m {
+                    let (b0, b1) = (other_world[j], other_world[(j + 1) % m]);
+                    // Position of a point along this edge, and its distance off the edge's line.
+                    let along = |p: Vec2| u[0] * (p[0] - a0[0]) + u[1] * (p[1] - a0[1]);
+                    let off = |p: Vec2| (u[0] * (p[1] - a0[1]) - u[1] * (p[0] - a0[0])).abs();
+                    // A neighbour's edge on the same line runs the other way.
+                    let (start, end) = (along(b1), along(b0));
+                    if end <= start
+                        || off(b0) > self.tolerance.length
+                        || off(b1) > self.tolerance.length
+                    {
+                        continue;
+                    }
+                    let (from, to) = (start.max(0.0), end.min(length));
+                    if to - from <= self.tolerance.length {
+                        continue;
+                    }
+                    let at = |t: f64| [a0[0] + t * u[0], a0[1] + t * u[1]];
+                    worst = worst.max(seam_mismatch(
+                        roof,
+                        pose,
+                        other_roof,
+                        other_pose,
+                        at(from),
+                        at(to),
+                    ));
+                }
+            }
+        }
+        worst
+    }
+
+    /// Whether `world` enters a placed piece by more than the length tolerance.
+    fn enters_a_placed_piece(&self, world: &[Vec2]) -> bool {
+        let reach = bounds(world);
+        self.stack.iter().any(|&other| {
+            !apart(&reach, &self.boxes[other], 0.0)
+                && self.world[other].as_ref().is_some_and(|polygon| {
+                    penetration_depth(world, polygon) > self.tolerance.length
+                })
+        })
     }
 
     /// Measure a placement of `piece` against the target and the other placed pieces.
@@ -270,6 +402,12 @@ impl Assembly {
     /// omitted placement would put the same shape, with the same roof, in the
     /// same place.
     ///
+    /// Pieces with roofs must also meet their neighbours' roofs. The slopes
+    /// along the contact are compared before any pose exists, through the
+    /// compatibility graph; then the heights at the corner; and, once the
+    /// placement is known to fit, the heights along every edge it shares with a
+    /// placed piece.
+    ///
     /// For a convex corner the list is complete in the sense of the module
     /// documentation. For any other corner it is a list of legal placements and
     /// nothing more.
@@ -300,12 +438,17 @@ impl Assembly {
                     corner.direction,
                 );
                 self.stats.generated += 1;
-                let check =
-                    self.check_polygon(piece, &transform(&self.shapes[piece].polygon, &pose));
-                if check.outside > self.tolerance.length {
+                if !self.roofs_meet_at(corner, piece, vertex) {
+                    self.stats.rejected_roof += 1;
+                    continue;
+                }
+                let world = transform(&self.shapes[piece].polygon, &pose);
+                if outside_depth(&world, &self.target) > self.tolerance.length {
                     self.stats.rejected_outside += 1;
-                } else if check.overlap > self.tolerance.length {
+                } else if self.enters_a_placed_piece(&world) {
                     self.stats.rejected_overlap += 1;
+                } else if self.roof_step_of(piece, &pose, &world) > self.tolerance.height {
+                    self.stats.rejected_roof += 1;
                 } else {
                     candidates.push(CandidatePlacement {
                         piece,
@@ -318,6 +461,23 @@ impl Assembly {
         }
         candidates
     }
+
+    /// Whether the roof of `piece` at its vertex `vertex` is as high as the
+    /// roof of the piece the corner's first side belongs to, at the corner.
+    /// True when either has no roof, and for a side that belongs to the tray.
+    fn roofs_meet_at(&self, corner: &Corner, piece: usize, vertex: usize) -> bool {
+        let EdgeRef::Piece { piece: fixed, .. } = corner.source else {
+            return true;
+        };
+        let (Some(height), Some(roof), Some(pose)) = (
+            self.graph.signatures(piece)[vertex].height_start,
+            &self.shapes[fixed].roof,
+            &self.poses[fixed],
+        ) else {
+            return true;
+        };
+        (roof_height(roof, pose, corner.vertex) - height).abs() <= self.tolerance.height
+    }
 }
 
 #[cfg(test)]
@@ -327,6 +487,7 @@ mod tests {
     use crate::testing::{TOL, Tiling, close, tiling};
     use proptest::prelude::*;
     use std::f64::consts::FRAC_PI_2;
+    use tiling_core::Roof;
 
     fn bare(polygon: Vec<Vec2>) -> Shape {
         Shape {
@@ -507,7 +668,8 @@ mod tests {
             CandidateStats {
                 generated: 5,
                 rejected_outside: 1,
-                rejected_overlap: 0
+                rejected_overlap: 0,
+                rejected_roof: 0
             }
         );
     }
@@ -533,6 +695,76 @@ mod tests {
         // Both orientations of the first block were tried and the second block was not.
         assert_eq!(assembly.stats().generated, 2);
         assert_eq!(assembly.stats().rejected_outside, 2);
+    }
+
+    /// A 2 x 4 strip under a level roof at height 1 against the left wall, a
+    /// 2 x 2 square at the same height, and a 3 x 2 block one higher.
+    fn roofed() -> Assembly {
+        let level = |polygon, z0| Shape {
+            polygon,
+            roof: Some(Roof {
+                z0,
+                gx: 0.0,
+                gy: 0.0,
+            }),
+        };
+        let shapes = vec![
+            level(rectangle(2.0, 4.0), 1.0),
+            level(rectangle(2.0, 2.0), 1.0),
+            level(rectangle(3.0, 2.0), 2.0),
+        ];
+        let mut assembly = Assembly::new(tray(), shapes, TOL).unwrap();
+        assembly.place(0, at(1.0, 2.0, 0.0)).unwrap();
+        assembly
+    }
+
+    fn corner_at(assembly: &Assembly, x: f64, y: f64) -> Corner {
+        *assembly
+            .frontier()
+            .iter()
+            .find(|c| close(c.vertex[0], x, 1e-9) && close(c.vertex[1], y, 1e-9))
+            .unwrap()
+    }
+
+    #[test]
+    fn a_roof_step_along_a_seam_refuses_a_placement_that_fits() {
+        // The corner at (2, 0) starts along the tray's wall, which has no roof:
+        // nothing can be told at the corner. The block fits standing up, over
+        // x in [2, 4] and y in [0, 3], and there it lies against the strip one
+        // millimetre higher. Lying down it reaches x = 5, outside the tray.
+        let mut assembly = roofed();
+        let corner = corner_at(&assembly, 2.0, 0.0);
+        assert!(matches!(corner.source, EdgeRef::Tray { .. }));
+        let proposals = assembly.propose(&corner);
+        assert_eq!(proposals.iter().map(|c| c.piece).collect::<Vec<_>>(), [1]);
+        let stats = assembly.stats();
+        assert_eq!(
+            (stats.generated, stats.rejected_outside, stats.rejected_roof),
+            (3, 1, 1)
+        );
+        assert!(close(
+            assembly.roof_step(2, &at(3.0, 1.5, FRAC_PI_2)).unwrap(),
+            1.0,
+            1e-12
+        ));
+    }
+
+    #[test]
+    fn a_roof_at_the_wrong_height_is_refused_at_the_corner_before_it_is_placed() {
+        // The corner at (2, 4) starts down the strip's own edge, so the strip's
+        // roof is known there. Both ways round the block is a millimetre too
+        // high at the corner, and it is refused for that, also the way round
+        // that would stick out of the tray: the roof is asked first.
+        let mut assembly = roofed();
+        let corner = corner_at(&assembly, 2.0, 4.0);
+        assert!(matches!(corner.source, EdgeRef::Piece { piece: 0, .. }));
+        let proposals = assembly.propose(&corner);
+        assert_eq!(proposals.iter().map(|c| c.piece).collect::<Vec<_>>(), [1]);
+        let stats = assembly.stats();
+        assert_eq!(
+            (stats.generated, stats.rejected_outside, stats.rejected_roof),
+            (3, 0, 2)
+        );
     }
 
     #[test]

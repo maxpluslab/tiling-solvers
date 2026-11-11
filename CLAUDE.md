@@ -16,6 +16,7 @@ uv run pytest                             # all Python tests
 uv run pytest tests/unit/test_native.py::test_version_matches_the_package
 uv run pytest tests/corpus                # every committed fixture and its answer key
 uv run pytest tests/corpus/test_native_agrees_with_validator.py   # Rust geometry against the validator
+uv run pytest -m "not slow"               # without the whole searches that take tens of seconds
 uv run pytest -m "not source"             # without the tropical-puzzle-lab checkout
 HYPOTHESIS_PROFILE=ci uv run pytest       # the derandomized, larger property runs CI uses
 uv run ruff check && uv run ruff format --check
@@ -25,8 +26,10 @@ cargo fmt --all
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace --exclude tiling-py          # tiling-py is a cdylib, tested through pytest
 cargo test -p tiling-geometry signed_area
+cargo test -p tiling-search                         # the search, on random tilings from tiling-geometry's `testing` feature
 
 uv run maxplus-solve new5-flat --max-solutions all --validate                     # run a solver from the command line
+uv run maxplus-solve new5 --mode relief --option lookahead=true --option order=random --seed 3
 uv run python scripts/import_fixtures.py --source ../tropical-puzzle-lab          # regenerate fixtures and keys
 uv run python scripts/import_fixtures.py --source ../tropical-puzzle-lab --check  # compare, write nothing
 ```
@@ -36,8 +39,8 @@ uv run python scripts/import_fixtures.py --source ../tropical-puzzle-lab --check
 ## Architecture
 
 - `crates/tiling-core`: domain types. No dependencies on the other crates.
-- `crates/tiling-geometry`: convex geometry, contact matching, candidate generation. Depends on core. Primitives take `&[Vec2]`; proptest strategies shared by its tests are in `src/testing.rs`.
-- `crates/tiling-search`: custom solvers, one module each. Depends on core and geometry.
+- `crates/tiling-geometry`: convex geometry, contact matching, candidate generation, cavities. Depends on core. Primitives take `&[Vec2]`; proptest strategies are in `src/testing.rs`, public behind the `testing` feature so that `tiling-search` can test on the same random tilings.
+- `crates/tiling-search`: custom solvers, one module each (`contact_dfs`), and `canonical`, which decides when two assemblies are the same. Depends on core and geometry.
 - `crates/tiling-py`: PyO3 bindings, built by maturin as `maxplus_solvers._native`. Converts types and forwards calls; no algorithms.
 - `python/maxplus_solvers`: the user-facing package: models, importers, solver adapters, validation, experiments. When a function is added to `_native`, add it to `_native.pyi` too. `_native` takes a polygon as a sequence of pairs, a pose as `(x, y, theta)` and a roof as `(z0, gx, gy)`.
   - `models.py` holds the contracts; `schemas/instance-v1.json` is their JSON form and `tiling-core` mirrors the instance types. Change all three together.
@@ -80,6 +83,8 @@ Rules:
 - **Three information regimes stay separate:** footprint (polygons only), relief (polygons and roof planes), tropical-aware (construction data as well). A solver declares which one it uses; results from different regimes are not comparable.
 - **The validator is independent of the search.** `validation.py` must not import `_native` or reuse the Rust geometry, so one bug cannot affect both. It follows the browser's completion rules and may only depart from them on the stricter side; the three places it does are listed in its module docstring.
 - **Solvers never call the validator.** `api.solve(..., validate=True)` is the only place the two meet, after the search has returned. A search that consulted the validator would be checking its answer with its own oracle.
+- **Search rules are switches, and the measurement is the product.** The question is what makes a puzzle hard and what helps, not how fast a solver is. A pruning rule, an ordering or a symmetry reduction added to a solver is an option that can be turned off, is tested not to change what the whole search finds, and gets its row in the ablation table of `docs/algorithms.md`. A rule that costs more than it saves stays, switched off, with its numbers.
+- **Slow tests still run.** The `slow` marker is for deselecting locally (`-m "not slow"`); CI runs everything.
 - **Completeness and uniqueness are explicit claims.** A result says whether the search was exhaustive and over which candidate set. "No solution found" and CP-SAT `INFEASIBLE` are relative to the candidates generated unless completeness is proven.
 - **Layering is one-way:** core ← geometry ← search ← py. Python reaches Rust only through `_native`.
 - **Production solvers cross the Python/Rust boundary once per solve.** Prototypes may call individual geometry primitives; a Rust solver receives the instance and runs to completion.

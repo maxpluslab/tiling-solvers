@@ -28,6 +28,9 @@ pub struct ContactTolerance {
     pub angle: f64,
     /// Roof slope, in mm per mm.
     pub slope: f64,
+    /// Roof height, in millimetres: how large a step between two roofs still
+    /// counts as none.
+    pub height: f64,
 }
 
 /// An edge of the target or of a piece. Edge `i` runs from vertex `i` to vertex `i + 1`.
@@ -75,10 +78,16 @@ enum Site {
     Outside,
 }
 
+/// Whether two points are within `tolerance` of each other.
+fn near(a: Vec2, b: Vec2, tolerance: f64) -> bool {
+    let (dx, dy) = (a[0] - b[0], a[1] - b[1]);
+    dx * dx + dy * dy <= tolerance * tolerance
+}
+
 fn locate(polygon: &[Vec2], p: Vec2, tolerance: f64) -> Site {
     let n = polygon.len();
     for (i, v) in polygon.iter().enumerate() {
-        if (v[0] - p[0]).hypot(v[1] - p[1]) <= tolerance {
+        if near(*v, p, tolerance) {
             return Site::Vertex(i);
         }
     }
@@ -182,18 +191,51 @@ pub fn free_corners(
     placed: &[(usize, &[Vec2])],
     tolerance: &ContactTolerance,
 ) -> Vec<Corner> {
-    let mut points: Vec<Vec2> = Vec::new();
-    for &p in target
+    // Every vertex once, in the order given: a vertex is dropped if an earlier
+    // one is within the tolerance. Looking along x keeps this from comparing
+    // every pair.
+    let all: Vec<Vec2> = target
         .iter()
         .chain(placed.iter().flat_map(|(_, polygon)| polygon.iter()))
-    {
-        let known = points
-            .iter()
-            .any(|q| (q[0] - p[0]).hypot(q[1] - p[1]) <= tolerance.length);
-        if !known {
-            points.push(p);
+        .copied()
+        .collect();
+    let mut by_x: Vec<usize> = (0..all.len()).collect();
+    by_x.sort_by(|&a, &b| all[a][0].total_cmp(&all[b][0]));
+    let mut repeated = vec![false; all.len()];
+    for (rank, &i) in by_x.iter().enumerate() {
+        for &j in &by_x[rank + 1..] {
+            if all[j][0] - all[i][0] > tolerance.length {
+                break;
+            }
+            if near(all[i], all[j], tolerance.length) {
+                repeated[i.max(j)] = true;
+            }
         }
     }
+    let points: Vec<Vec2> = (0..all.len())
+        .filter(|&i| !repeated[i])
+        .map(|i| all[i])
+        .collect();
+
+    // A point outside a piece's box, grown by the tolerance, is outside the piece.
+    let boxes: Vec<[f64; 4]> = placed
+        .iter()
+        .map(|(_, polygon)| {
+            let mut b = [
+                f64::INFINITY,
+                f64::INFINITY,
+                f64::NEG_INFINITY,
+                f64::NEG_INFINITY,
+            ];
+            for q in polygon.iter() {
+                b[0] = b[0].min(q[0] - tolerance.length);
+                b[1] = b[1].min(q[1] - tolerance.length);
+                b[2] = b[2].max(q[0] + tolerance.length);
+                b[3] = b[3].max(q[1] + tolerance.length);
+            }
+            b
+        })
+        .collect();
 
     let mut corners = Vec::new();
     'points: for &p in &points {
@@ -215,7 +257,10 @@ pub fn free_corners(
             None if matches!(site, Site::Outside) => continue 'points,
             None => {}
         }
-        for &(piece, polygon) in placed {
+        for (&(piece, polygon), b) in placed.iter().zip(&boxes) {
+            if p[0] < b[0] || p[0] > b[2] || p[1] < b[1] || p[1] > b[3] {
+                continue;
+            }
             let site = locate(polygon, p, tolerance.length);
             match interior_range(polygon, &site) {
                 Some((start, width, edge)) => covers.push(Cover {

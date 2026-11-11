@@ -151,8 +151,12 @@ def solve(instance: PuzzleInstance, config: SolverConfig) -> SolveResult:
             descend = False
 
     metrics.solutions = len(solutions)
-    metrics.candidates_generated, metrics.rejected_outside, metrics.rejected_overlap = state.stats()
+    metrics.candidates_generated, metrics.rejected_outside, metrics.rejected_overlap, _ = (
+        state.stats()
+    )
     metrics.wall_time_s = time.perf_counter() - started
+    if exhausted:
+        metrics.exhausted_s = metrics.wall_time_s
     metrics.cpu_time_s = time.process_time() - cpu_started
 
     if solutions:
@@ -181,7 +185,6 @@ def solve(instance: PuzzleInstance, config: SolverConfig) -> SolveResult:
 SPEC = SolverSpec(
     name=NAME,
     run=solve,
-    regimes=frozenset({Regime.FOOTPRINT}),
-    candidate_set=CANDIDATE_SET,
+    candidate_sets={Regime.FOOTPRINT: CANDIDATE_SET},
     description="Python prototype: depth-first search over corner contacts, fewest first",
 )

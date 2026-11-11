@@ -1,4 +1,5 @@
-//! Proptest strategies and helpers shared by this crate's tests.
+//! Proptest strategies and helpers for tests, here and in the crates built on
+//! this one, which reach them through the `testing` feature.
 
 use std::f64::consts::{PI, TAU};
 
@@ -13,6 +14,7 @@ pub const TOL: ContactTolerance = ContactTolerance {
     length: 1e-7,
     angle: 1e-7,
     slope: 1e-7,
+    height: 1e-7,
 };
 
 pub fn close(a: f64, b: f64, tolerance: f64) -> bool {

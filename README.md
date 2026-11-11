@@ -14,7 +14,7 @@ Python owns orchestration and analysis. Rust owns the geometry and the search.
 
 ## Status
 
-**Contracts and fixtures.** The instance format, the sanitizing importer and the benchmark corpus exist: 16 puzzles from Tropical Puzzle Lab and 4 synthetic ones with known solution counts, each with an answer key that only tests read. An independent validator checks an assembly against the browser player's completion rules. The Rust geometry kernel (separating-axis depth, convex clipping, containment, edge signatures, roof continuity) is in place and agrees with the validator on random poses of every fixture's pieces. A first solver exists: `python.contact_dfs`, a Python prototype of the contact search, which solves the 6-, 9- and 11-piece footprint puzzles and returns assemblies that pass the validator. The work is laid out in [docs/roadmap.md](docs/roadmap.md), and the design in [docs/architecture.md](docs/architecture.md).
+**Contracts and fixtures.** The instance format, the sanitizing importer and the benchmark corpus exist: 16 puzzles from Tropical Puzzle Lab and 4 synthetic ones with known solution counts, each with an answer key that only tests read. An independent validator checks an assembly against the browser player's completion rules. The Rust geometry kernel (separating-axis depth, convex clipping, containment, edge signatures, roof continuity) is in place and agrees with the validator on random poses of every fixture's pieces. Two solvers exist. `python.contact_dfs` is a Python prototype of the contact search. `rust.contact_dfs` is that search in Rust with roofs, pruning and symmetry handling: it solves all 16 corpus puzzles, runs every search to its end, and returns assemblies that pass the validator. Each of its rules can be switched off, because the question here is what makes a puzzle hard and what helps, not how fast one solver is; [docs/algorithms.md](docs/algorithms.md) has the measurements. The work is laid out in [docs/roadmap.md](docs/roadmap.md), and the design in [docs/architecture.md](docs/architecture.md).
 
 ```python
 from maxplus_solvers import load_puzzle
@@ -24,6 +24,22 @@ flat = load_puzzle(
     "benchmarks/fixtures/new2.json", regime="footprint"
 )  # the same pieces without roofs
 ```
+
+Solving, from Python or from the command line:
+
+```python
+from maxplus_solvers import SolverConfig, solve
+
+result = solve(puzzle, SolverConfig("rust.contact_dfs", mode="relief", max_solutions=None))
+print(result.status, len(result.solutions), result.exhaustive, result.metrics["nodes"])
+```
+
+```sh
+uv run maxplus-solve new2 --mode relief --max-solutions all --validate
+uv run maxplus-solve rat1-flat --max-solutions all --option closure_pruning=false
+```
+
+What a result claims, and what it does not, is in [docs/solver-contract.md](docs/solver-contract.md).
 
 With the `validate` extra (Shapely), poses can be checked against the completion rules:
 
@@ -59,7 +75,7 @@ schemas/             versioned exchange formats (`instance-v1.json`)
 benchmarks/fixtures/ sanitized puzzle instances, generated
 scripts/             `import_fixtures.py` regenerates fixtures and answer keys
 tests/               pytest suites: unit, property, corpus, architecture; answer keys in `tests/keys/`
-docs/                architecture and roadmap
+docs/                architecture, roadmap, the solver contract and the algorithms
 ```
 
 Planned, added by the roadmap phase that needs them: benchmark manifests, `notebooks/`.

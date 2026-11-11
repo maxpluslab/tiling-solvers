@@ -32,25 +32,41 @@ def test_a_solved_puzzle_exits_zero_and_says_what_is_claimed(
 ) -> None:
     assert cli.main([str(strips)]) == cli.SOLVED
     out = capsys.readouterr().out
-    assert "python.contact_dfs" in out and "(footprint): solved" in out
+    assert "rust.contact_dfs" in out and "(footprint): solved" in out
     assert "stopped before its end" in out
+    assert "first solution after" in out and "search finished after" not in out
     assert "not proven complete" in out
     assert "solution 1: 2 pieces, not validated" in out
 
 
 def test_all_solutions_with_validation(strips: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """Upright and lying are a quarter turn of the tray apart: one assembly, or two."""
     assert cli.main([str(strips), "--max-solutions", "all", "--validate"]) == cli.SOLVED
     out = capsys.readouterr().out
     assert "ran to its end" in out
+    assert "solution 1: 2 pieces, valid" in out and "solution 2" not in out
+    assert "first solution after" in out and "search finished after" in out
+
+    arguments = [str(strips), "--max-solutions", "all", "--validate"]
+    assert cli.main([*arguments, "--option", "tray_rotations=all"]) == cli.SOLVED
+    out = capsys.readouterr().out
     assert "solution 2: 2 pieces, valid" in out and "solution 3" not in out
+
+    assert cli.main([*arguments, "--solver", "python.contact_dfs"]) == cli.SOLVED
+    out = capsys.readouterr().out
+    assert "python.contact_dfs" in out and "solution 2: 2 pieces, valid" in out
 
 
 def test_json_output_is_a_result_document(strips: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    assert cli.main([str(strips), "--json", "--seed", "5", "--max-solutions", "2"]) == cli.SOLVED
+    arguments = ["--json", "--seed", "5", "--max-solutions", "2"]
+    options = ["--option", "tray_rotations=all", "--option", "lookahead=false"]
+    assert cli.main([str(strips), *arguments, *options]) == cli.SOLVED
     result = SolveResult.from_dict(json.loads(capsys.readouterr().out))
     assert len(result.solutions) == 2
     assert result.config is not None
     assert (result.config.seed, result.config.max_solutions) == (5, 2)
+    # A word stays a word, and JSON is read as JSON.
+    assert result.config.options == {"tray_rotations": "all", "lookahead": False}
 
 
 def test_no_solution_exits_one(unfillable: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -70,7 +86,11 @@ def test_a_fixture_is_found_by_id(
     ("arguments", "message"),
     [
         (["--solver", "rust.nothing"], "invalid choice"),
-        (["--mode", "relief"], "does not work in relief mode"),
+        (["--mode", "relief"], "cannot turn a footprint instance"),
+        (["--solver", "python.contact_dfs", "--mode", "relief"], "does not work in relief mode"),
+        (["--option", "nonsense=1"], "unknown options nonsense"),
+        (["--option", "lookahead"], "must be NAME=VALUE"),
+        (["--option", "lookahead=perhaps"], "lookahead must be true or false"),
         (["--max-solutions", "0"], "must be at least 1"),
         (["--time-limit", "-1"], "time_limit_s must be positive"),
     ],
@@ -99,7 +119,7 @@ def test_an_invalid_solution_exits_three(
 
     from maxplus_solvers import Pose, Solution, solvers
 
-    real = solvers.get("python.contact_dfs")
+    real = solvers.get("rust.contact_dfs")
 
     def overlapping(instance, config):  # type: ignore[no-untyped-def]
         result = real.run(instance, config)

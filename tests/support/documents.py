@@ -62,3 +62,50 @@ def with_source(doc: dict[str, Any]) -> dict[str, Any]:
         "geometryHash": "feed",
     }
     return doc
+
+
+# Three strips side by side in a 120 mm by 72 mm tray, 24, 36 and 60 mm wide, in
+# that order from the left wall at x = -60. Their centres are at x = -48, -18 and 30.
+THREE_STRIP_WIDTHS = (24.0, 36.0, 60.0)
+THREE_STRIP_CENTRES = (-48.0, -18.0, 30.0)
+
+
+def three_strips() -> dict[str, Any]:
+    """A footprint puzzle with 3! = 6 assemblies: the strips in any order.
+
+    The tray is a rectangle, with a half turn and no quarter turn. The half
+    turn reverses an order, so the 6 are 3 pairs.
+    """
+
+    def strip(width: float) -> list[list[float]]:
+        half = width / 2
+        return [[-half, -36.0], [half, -36.0], [half, 36.0], [-half, 36.0]]
+
+    doc = footprint()
+    doc["id"] = "three-strips"
+    doc["spanMm"] = 120.0
+    doc["target"] = {"vertices": [[-60.0, -36.0], [60.0, -36.0], [60.0, 36.0], [-60.0, 36.0]]}
+    doc["pieces"] = [
+        {"id": f"p{index:02d}", "polygon": strip(width)}
+        for index, width in enumerate(THREE_STRIP_WIDTHS)
+    ]
+    return doc
+
+
+def three_strips_relief() -> dict[str, Any]:
+    """The same strips, each with the roof it has under ``z = 20 + (x + 60) / 4``.
+
+    From the left, the roofs run 20 to 26, 26 to 35 and 35 to 50 mm. Two
+    unturned strips meet only where one's right height is the other's left,
+    which is the order they were cut in. A strip turned half round shows its
+    other edge, and no two right heights or two left heights agree. So the
+    roofs are continuous in that one order, and in its half turn with the tray:
+    2 assemblies, 1 pair.
+    """
+    doc = three_strips()
+    doc["regime"] = "relief"
+    doc["reliefMm"] = 50.0
+    doc["validation"]["roofMismatch"] = 0.05
+    for piece, centre in zip(doc["pieces"], THREE_STRIP_CENTRES, strict=True):
+        piece["roof"] = {"z0": 20.0 + (centre + 60.0) / 4, "gx": 0.25, "gy": 0.0}
+    return doc
