@@ -699,7 +699,7 @@ impl Search<'_> {
                     .map(|c| (self.matched_edges(&c), c))
                     .collect();
                 // Stable: equal scores keep the order they were generated in.
-                scored.sort_by(|a, b| b.0.cmp(&a.0));
+                scored.sort_by_key(|(score, _)| std::cmp::Reverse(*score));
                 candidates = scored.into_iter().map(|(_, c)| c).collect();
             }
         }
