@@ -16,6 +16,9 @@ class SearchMetrics:
     # Nodes left without success: no piece fits the corner branched on, a pruning
     # rule calls the state a dead end, or every piece is down and something is uncovered.
     backtracks: int = 0
+    # The pieces down at each backtrack, added up: backtrack_depth / backtracks is how
+    # deep the search is, on average, when it finds it is wrong.
+    backtrack_depth: int = 0
     # Pieces put down as a branch of the search, counting every attempt.
     placements: int = 0
     # The largest number of pieces down at once.

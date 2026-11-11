@@ -1,0 +1,39 @@
+name = "factorial"
+description = """
+Flat against relief x tolerance x search heuristic x puzzle family, on rust.contact_dfs.
+Every corpus puzzle is run in its own regime, so each construction appears with roofs and
+without. Three blocks: whole searches (how many assemblies, and the cost of showing there are
+no more), first solutions under the two fixed candidate orders, and first solutions under
+random orders. Searches are stopped after 30 s; a stopped search is a result too.
+"""
+fixtures = ["corpus"]
+
+# Whole searches: uniqueness and ambiguity, and what looking ahead does to the whole tree.
+[[runs]]
+solver = "rust.contact_dfs"
+time_limit_s = 30.0
+contact_scale = [1.0, 1000.0, 6000.0]
+
+[runs.options]
+lookahead = [false, true]
+
+# First solutions under the fixed orders.
+[[runs]]
+solver = "rust.contact_dfs"
+max_solutions = 1
+time_limit_s = 30.0
+contact_scale = [1.0, 1000.0, 6000.0]
+
+[runs.options]
+order = ["matched-edges", "generated"]
+lookahead = [false, true]
+
+# First solutions under random orders: how much of the cost is luck.
+[[runs]]
+solver = "rust.contact_dfs"
+max_solutions = 1
+time_limit_s = 30.0
+seeds = [0, 1, 2, 3, 4]
+
+[runs.options]
+order = "random"

@@ -137,6 +137,9 @@ pub struct Stats {
     /// Nodes abandoned: no candidate for the corner, a dead end by a pruning
     /// rule, or every piece down with something left uncovered.
     pub backtracks: u64,
+    /// The pieces down at each backtrack, added up. Divided by `backtracks`
+    /// it is how deep, on average, the search is when it finds it is wrong.
+    pub backtrack_depth: u64,
     /// Pieces put down as a branch of the search, counting every attempt.
     /// Placements tried while looking ahead are not counted.
     pub placements: u64,
@@ -719,6 +722,7 @@ impl Search<'_> {
                 self.record();
             } else {
                 self.stats.backtracks += 1;
+                self.stats.backtrack_depth += depth;
             }
             return;
         }
@@ -732,11 +736,13 @@ impl Search<'_> {
                 DeadEnd::Closure => self.stats.pruned_closure += 1,
             }
             self.stats.backtracks += 1;
+            self.stats.backtrack_depth += depth;
             return;
         }
         let mut candidates = self.branch(&corners);
         if candidates.is_empty() {
             self.stats.backtracks += 1;
+            self.stats.backtrack_depth += depth;
             return;
         }
         match self.options.order {

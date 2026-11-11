@@ -186,6 +186,7 @@ def test_with_its_additions_off_the_search_does_the_prototypes_work(fixture_id: 
     for count in (
         "nodes",
         "backtracks",
+        "backtrack_depth",
         "placements",
         "max_depth",
         "candidates_generated",

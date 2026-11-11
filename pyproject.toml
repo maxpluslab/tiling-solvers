@@ -17,9 +17,13 @@ dependencies = []
 validate = ["shapely>=2.0"]
 # The CP-SAT backend, `cp_sat.placements`. The Rust solvers do not need it.
 cp-sat = ["ortools>=9.10"]
+# Figures from benchmark results, `maxplus_solvers.experiments.plotting`. Running an
+# experiment and printing its tables needs nothing.
+analysis = ["matplotlib>=3.8"]
 
 [project.scripts]
 maxplus-solve = "maxplus_solvers.cli:main"
+maxplus-bench = "maxplus_solvers.experiments.cli:main"
 
 [project.urls]
 Repository = "https://github.com/maxpluslab/tiling-solvers"
@@ -28,6 +32,7 @@ Repository = "https://github.com/maxpluslab/tiling-solvers"
 dev = [
     "hypothesis>=6.100",
     "jsonschema>=4.20",
+    "matplotlib>=3.8",
     "maturin>=1.9,<2",
     "ortools>=9.10",
     "pyright>=1.1.400",

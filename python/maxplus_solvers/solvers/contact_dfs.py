@@ -51,6 +51,7 @@ TRAY_ROTATIONS = ("once", "all")
 # usually examines more states to do it. docs/algorithms.md has the measurements.
 DEFAULTS: Mapping[str, Any] = {
     "node_limit": None,
+    "roof_tolerance_mm": None,
     "tray_rotations": "once",
     "anchor": True,
     "cavity_pruning": True,
@@ -73,6 +74,11 @@ def _options(given: Mapping[str, Any]) -> dict[str, Any]:
             raise ValueError(f"{NAME}: {switch} must be true or false")
     if options["order"] not in ORDERS:
         raise ValueError(f"{NAME}: order must be one of {', '.join(ORDERS)}")
+    roof = options["roof_tolerance_mm"]
+    if roof is not None and (
+        isinstance(roof, bool) or not isinstance(roof, int | float) or not roof > 0
+    ):
+        raise ValueError(f"{NAME}: roof_tolerance_mm must be a positive number")
     if options["tray_rotations"] not in TRAY_ROTATIONS:
         raise ValueError(f"{NAME}: tray_rotations must be one of {', '.join(TRAY_ROTATIONS)}")
     return options
@@ -101,6 +107,8 @@ def solve(instance: PuzzleInstance, config: SolverConfig) -> SolveResult:
         # A point off by the contact noise changes a roof's height by that times its slope.
         steepest = max(math.hypot(gx, gy) for _, gx, gy in roofs)
         height_mm = fit_mm * max(1.0, steepest)
+        if options["roof_tolerance_mm"] is not None:
+            height_mm = float(options["roof_tolerance_mm"])
 
     cpu_started = time.process_time()
     outcome = _native.contact_dfs(
@@ -132,6 +140,7 @@ def solve(instance: PuzzleInstance, config: SolverConfig) -> SolveResult:
     metrics = SearchMetrics(
         nodes=outcome.nodes,
         backtracks=outcome.backtracks,
+        backtrack_depth=outcome.backtrack_depth,
         placements=outcome.placements,
         max_depth=outcome.max_depth,
         candidates_generated=outcome.candidates_generated,

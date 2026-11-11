@@ -18,5 +18,5 @@ python/maxplus_solvers/*.pdb
 # Notebooks
 .ipynb_checkpoints/
 
-# Local benchmark output
-benchmarks/results/
+# Raw benchmark records; the tables beside them are committed
+benchmarks/results/*.jsonl
