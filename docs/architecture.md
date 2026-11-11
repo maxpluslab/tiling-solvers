@@ -120,9 +120,9 @@ Candidate placements come from contacts, never from an angular grid: aligning a 
 
 Numbers are `f64` with explicit tolerances and property tests. Exact or adaptive predicates can follow if experiments expose problems. A floating-point implementation is not a guarantee of mathematical exactness and results must not be described as one.
 
-The [`geo`](https://docs.rs/geo) crate is worth evaluating for general polygon operations; the hot path uses specialized convex routines.
+The kernel is specialized convex routines with no geometry dependency. The [`geo`](https://docs.rs/geo) crate was considered in phase 3 and left out: nothing yet needs general polygon operations, and GEOS through Shapely is the cross-check. The Rust geometry is tested differentially against the validator on random poses of fixture pieces.
 
-The final validator is kept independent of this engine, on Shapely at first, so that one bug cannot affect both search and verification. Its rules mirror the browser's completion check in `tropical-puzzle-lab/web/src/geometry/evaluate.ts`.
+The final validator is kept independent of this engine, on Shapely at first, so that one bug cannot affect both search and verification. Its rules mirror the browser's completion check in `tropical-puzzle-lab/web/src/geometry/evaluate.ts`, and where it departs from it the validator is the stricter or more exact of the two: uncovered area comes from an exact union, outside depth is the Euclidean distance to the target, and penetration depth is the true shortest separating translation. The last two coincide with the browser's values for any near-solution.
 
 ## CP-SAT
 

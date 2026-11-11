@@ -10,5 +10,8 @@ repository.workspace = true
 [dependencies]
 tiling-core.workspace = true
 
+[dev-dependencies]
+proptest.workspace = true
+
 [lints]
 workspace = true

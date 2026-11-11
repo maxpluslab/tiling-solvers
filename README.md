@@ -14,7 +14,7 @@ Python owns orchestration and analysis. Rust owns the geometry and the search.
 
 ## Status
 
-**Contracts and fixtures.** The instance format, the sanitizing importer and the benchmark corpus exist: 16 puzzles from Tropical Puzzle Lab and 4 synthetic ones with known solution counts, each with an answer key that only tests read. No solver or validator exists yet. The work is laid out in [docs/roadmap.md](docs/roadmap.md), and the design in [docs/architecture.md](docs/architecture.md).
+**Contracts and fixtures.** The instance format, the sanitizing importer and the benchmark corpus exist: 16 puzzles from Tropical Puzzle Lab and 4 synthetic ones with known solution counts, each with an answer key that only tests read. An independent validator checks an assembly against the browser player's completion rules. The Rust geometry kernel (separating-axis depth, convex clipping, containment, edge signatures, roof continuity) is in place and agrees with the validator on random poses of every fixture's pieces. A first solver exists: `python.contact_dfs`, a Python prototype of the contact search, which solves the 6-, 9- and 11-piece footprint puzzles and returns assemblies that pass the validator. The work is laid out in [docs/roadmap.md](docs/roadmap.md), and the design in [docs/architecture.md](docs/architecture.md).
 
 ```python
 from maxplus_solvers import load_puzzle
@@ -23,6 +23,15 @@ puzzle = load_puzzle("benchmarks/fixtures/new2.json")
 flat = load_puzzle(
     "benchmarks/fixtures/new2.json", regime="footprint"
 )  # the same pieces without roofs
+```
+
+With the `validate` extra (Shapely), poses can be checked against the completion rules:
+
+```python
+from maxplus_solvers.validation import validate_solution
+
+report = validate_solution(puzzle, poses)  # poses: {piece id: Pose}
+print(report.solved, report.failed, report.residuals())
 ```
 
 ## Quick start

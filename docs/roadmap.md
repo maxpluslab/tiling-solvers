@@ -6,10 +6,10 @@ Each phase is sized for one working session and ends with an exit criterion that
 | --- | --- | --- |
 | 0 | Repository skeleton | Done |
 | 1 | Contracts and fixtures | Done |
-| 2 | Independent validator | Next |
-| 3 | Rust geometry kernel | |
-| 4 | Contact candidates, Python prototype, solver contract | |
-| 5 | Rust contact DFS | |
+| 2 | Independent validator | Done |
+| 3 | Rust geometry kernel | Done |
+| 4 | Contact candidates, Python prototype, solver contract | Done |
+| 5 | Rust contact DFS | Next |
 | 6 | CP-SAT backend | |
 | 7 | Benchmark and research platform | |
 
@@ -56,6 +56,14 @@ Done, with these decisions:
 
 **Exit:** every answer key validates. Perturbed keys fail the expected check: a shifted piece, a rotated piece, two swapped pieces, and a relief assembly that tiles but has mismatched roofs.
 
+Done, with these decisions:
+
+- The exit criterion is `tests/corpus/test_keys_validate.py`. Every piece of every fixture is shifted by 5 mm in four directions, turned by 20° both ways, and swapped with a piece of another shape; each must fail a depth check, not only the looser area check.
+- "Tiles but has mismatched roofs" is tested on the ridge synthetic and on every corpus piece whose footprint is unchanged by half a turn. Half-turned, such a piece must fail the roof check and nothing else.
+- The validator differs from the browser in three places, each time on the stricter or more exact side: uncovered area from an exact union; outside depth as Euclidean distance to the target, which is larger beyond a corner; and penetration depth as the true shortest separating translation. The browser's formula for the last takes the shared extent along each edge normal, which understates the depth when one piece's extent lies inside the other's. They agree for every near-solution.
+- A finding about the corpus: `rat1` has a rectangular piece with a level roof (`p02` in the fixture). It fits both ways round, so the relief puzzle has at least two solutions at the level of poses, though one assembly. A test pins this so the corpus cannot change unnoticed. Canonical solution forms in phase 5 must treat the two as equal.
+- Phase 3 follows from the penetration decision: the Rust SAT routine must return the true separating distance, or the differential tests against this validator will disagree on nested pieces.
+
 ## Phase 3: Rust geometry kernel
 
 - In `tiling-geometry`: a convex polygon type, rigid transforms, SAT penetration depth, convex clipping and intersection area, containment and outside depth, edge extraction, and edge signatures (length, adjacent corner angles, roof heights at the ends, roof gradient).
@@ -65,6 +73,17 @@ Done, with these decisions:
 - Decide here whether `geo` earns a place or the convex routines suffice.
 
 **Exit:** differential tests agree with the Shapely validator on random poses of fixture pieces, within a stated tolerance.
+
+Done, with these decisions:
+
+- The exit criterion is `tests/corpus/test_native_agrees_with_validator.py`. For every fixture, pieces are thrown at seeded random poses and each quantity is computed twice, by `_native` and by the validator, Shapely or the Python models. The tolerances are 1e-9 mm for lengths (penetration depth, outside depth, roof heights) and 1e-6 mm² for areas. Whole assemblies, keyed and disturbed by 0.01 mm to a few millimetres, give the same overlap and outside residuals by both routes.
+- The same comparisons run on random convex polygons in `tests/property/test_native_properties.py`, and the kernel has its own proptest properties beside the code.
+- The tests were made to fail once by hand: with the browser's shared-extent formula in place of the separating distance, and with one clipping edge dropped. Both turned the differential tests red.
+- A finding about the oracle: CI on Linux produced two triangles, the kernel's intersection and Shapely's, equal to one unit in the last place, for which GEOS 3.14 reports no shared area. The kernel was right. Results are therefore compared with Shapely by distance and area, never by overlaying two nearly coincident polygons, and the case is pinned as an example. The validator overlays pieces with one another, not with copies of themselves; if two pieces ever coincide to rounding, its area residual may be understated, while the depth check, which does not use GEOS, still fails.
+- `geo` is not added. Everything in this phase is a convex routine of a few lines, the corpus targets are convex, and GEOS through Shapely already serves as the independent cross-check. General polygon operations (unions, non-convex free regions) have no user yet; the question reopens with the first solver that needs one.
+- Edge signatures carry the roof's slope along the edge and along its outward normal, not a gradient vector: both numbers are unchanged by a rigid motion, so signatures can be compared before any pose exists.
+- What is not here: finding which edges of two placed pieces are shared. The kernel measures the roof step along a given segment; choosing the segments is contact matching, in phase 4. The differential roof test therefore uses the edges two pieces share end to end, which is a subset of the seams the validator examines.
+- `_native` takes polygons as sequences of pairs, poses as `(x, y, theta)` and roofs as `(z0, gx, gy)`. These are prototype-facing primitives; a production solver receives the whole instance once.
 
 ## Phase 4: contact candidates, Python prototype, solver contract
 
@@ -77,10 +96,23 @@ Done, with these decisions:
 
 **Exit:** `python.contact_dfs` solves the 6-piece and 9-piece flat fixtures, and every solution it returns passes the validator.
 
+Done, with these decisions:
+
+- The exit criterion is `tests/corpus/test_contact_dfs_solves.py`. The four small flat fixtures are solved, the searches are also run to their end, and every assembly returned passes the validator as an exact tiling.
+- The frontier is corners, not edges. The search branches on one convex corner of the uncovered region, the one with the fewest candidates, and a candidate puts a piece vertex at the corner with the edge leaving it flush against the corner's first side. [algorithms.md](algorithms.md) gives the argument that this loses no exact assembly of convex pieces. The corners are found from the directions each polygon occupies around a vertex; the uncovered region is never built as a polygon, so no general polygon library is needed.
+- The candidate interface is `_native.Assembly`: `frontier()`, `propose(corner)`, `check_placement(piece, pose)`, with `place` and `undo` as a stack. It lives in `tiling-geometry` (`contact`, `graph`, `assembly`).
+- The edge compatibility graph rules out nothing in the footprint regime: pieces need not meet edge to edge, so lengths prove nothing. With roofs it keeps only edge pairs whose slopes along the edge cancel, which removes more than half of all pairs on the corpus and keeps every contact in the answer keys. The same signatures identify congruent pieces and a piece's own symmetry, and proposals leave those repetitions out.
+- `candidates_proven_complete` stays `false`. The argument is about exact arithmetic and exact assemblies; the code is `f64` with tolerances, and the validator also accepts arrangements that are not exact.
+- `SolveResult` gained `candidate_set`, `config` and `solver_version`, and `Solution` gained `valid`. `no_solution_found` now requires an exhaustive search and `interrupted` forbids one. [solver-contract.md](solver-contract.md) is the reference.
+- `solve(..., validate=True)` runs the validator on what a solver returns. No solver calls it; an architecture test checks that.
+- Tests beyond the exit: the frontier against the corners of `target − union(placed)` from GEOS, `check_placement` against Shapely and the validator, `propose` against a brute-force enumeration with the test oracle, and in Rust a property over random tilings cut by chords that every convex corner is offered its true filler. Each was made to fail once by breaking the code.
+- Findings, relative to the candidates generated. The 6-piece and 9-piece footprint puzzles each have exactly one assembly, found in the tray's four orientations. `rat1-flat` (11 pieces) has 101; all pass the validator; the count is pinned by a test. The prototype does not finish the 16-piece footprint puzzles in 90 s and finds a first assembly of the 20-piece one in about 7 s.
+- For phase 5: by the corner argument, collinear-chain placements add no assemblies, since a piece lying against a run of shorter edges still has a vertex in a convex corner. They should be implemented only if measurements show the search needs them. What the measurements do ask for is pruning, and removing the tray's rotations.
+
 ## Phase 5: Rust contact DFS
 
 - `tiling-search::contact_dfs`: the whole search in Rust, one boundary crossing per solve. Time limit, `max_solutions`, seed, and counts of nodes, backtracks and candidates.
-- Collinear-chain placements: one long edge mating with a run of shorter collinear edges, with offsets taken from endpoint coincidences.
+- Collinear-chain placements: one long edge mating with a run of shorter collinear edges, with offsets taken from endpoint coincidences. (Phase 4 found these are not needed for completeness; see its decisions.)
 - Relief filtering: the tangential-gradient test before any polygon work, then roof heights at the ends of the contact.
 - Cavity pruning: reject a partial assembly that leaves an uncovered component no subset of the remaining pieces can fill, by area or by minimum width.
 - Symmetry: anchor the first placement to break the tray's rotations, and order geometrically identical pieces.

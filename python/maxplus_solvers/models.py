@@ -41,10 +41,13 @@ class Regime(StrEnum):
 
 
 class SolveStatus(StrEnum):
-    """Outcome of a solve.
+    """Outcome of a solve. ``docs/solver-contract.md`` says what each value claims.
 
-    Provisional: the set of values and what each one claims is settled by
-    ``docs/solver-contract.md`` in phase 4.
+    * ``solved``: at least one solution is returned.
+    * ``no_solution_found``: the search ran to its end and found none. This is
+      a statement about the candidates the solver generated, and about the
+      puzzle only if those are proven complete.
+    * ``interrupted``: a limit stopped the search before it found anything.
     """
 
     SOLVED = "solved"
@@ -567,22 +570,28 @@ class SolverConfig:
 
 @dataclass(frozen=True, slots=True)
 class Solution:
-    """One assembly: a pose for every piece, and the validator's residuals once checked."""
+    """One assembly: a pose for every piece.
+
+    ``residuals`` and ``valid`` are the independent validator's findings, and
+    stay ``None`` until it has been run. A solver does not fill them in itself.
+    """
 
     poses: Mapping[str, Pose]
     residuals: Mapping[str, float] | None = None
+    valid: bool | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "poses": {pid: pose.to_dict() for pid, pose in self.poses.items()},
             "residuals": None if self.residuals is None else dict(self.residuals),
+            "valid": self.valid,
         }
 
     @classmethod
     def from_dict(cls, data: Any) -> Self:
-        d = _mapping(data, "solution", ("poses", "residuals"))
+        d = _mapping(data, "solution", ("poses", "residuals", "valid"))
         poses = {pid: Pose.from_dict(p, f"solution.poses.{pid}") for pid, p in d["poses"].items()}
-        return cls(poses, None if d["residuals"] is None else dict(d["residuals"]))
+        return cls(poses, None if d["residuals"] is None else dict(d["residuals"]), d["valid"])
 
 
 @dataclass(frozen=True, slots=True)
@@ -593,7 +602,10 @@ class SolveResult:
     placements it generated. ``candidates_proven_complete`` says those candidates
     are known to include every solution. Only both together make "no solution"
     or "exactly these solutions" a claim about the puzzle; otherwise the result
-    is relative to the candidate set.
+    is relative to the candidate set, which ``candidate_set`` names.
+
+    ``config`` and ``solver_version`` record what produced the result, so that
+    it can be reproduced.
     """
 
     status: SolveStatus
@@ -604,6 +616,9 @@ class SolveResult:
     exhaustive: bool = False
     candidates_proven_complete: bool = False
     metrics: Mapping[str, float] = field(default_factory=dict)
+    candidate_set: str = ""
+    config: SolverConfig | None = None
+    solver_version: str = ""
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "status", SolveStatus(self.status))
@@ -611,6 +626,10 @@ class SolveResult:
         object.__setattr__(self, "solutions", tuple(self.solutions))
         if (self.status is SolveStatus.SOLVED) != bool(self.solutions):
             raise ValueError("status is 'solved' exactly when there is at least one solution")
+        if self.status is SolveStatus.NO_SOLUTION_FOUND and not self.exhaustive:
+            raise ValueError("'no_solution_found' is only said by a search that ran to its end")
+        if self.status is SolveStatus.INTERRUPTED and self.exhaustive:
+            raise ValueError("an interrupted search was not exhaustive")
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -622,6 +641,9 @@ class SolveResult:
             "exhaustive": self.exhaustive,
             "candidatesProvenComplete": self.candidates_proven_complete,
             "metrics": dict(self.metrics),
+            "candidateSet": self.candidate_set,
+            "config": None if self.config is None else self.config.to_dict(),
+            "solverVersion": self.solver_version,
         }
 
     @classmethod
@@ -635,6 +657,9 @@ class SolveResult:
             "exhaustive",
             "candidatesProvenComplete",
             "metrics",
+            "candidateSet",
+            "config",
+            "solverVersion",
         )
         d = _mapping(data, "result", keys)
         return cls(
@@ -646,4 +671,7 @@ class SolveResult:
             exhaustive=d["exhaustive"],
             candidates_proven_complete=d["candidatesProvenComplete"],
             metrics=dict(d["metrics"]),
+            candidate_set=d["candidateSet"],
+            config=None if d["config"] is None else SolverConfig.from_dict(d["config"]),
+            solver_version=d["solverVersion"],
         )

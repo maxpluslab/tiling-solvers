@@ -227,9 +227,40 @@ def test_solve_result_round_trips() -> None:
 
 
 def test_a_result_claims_no_completeness_unless_told() -> None:
-    result = SolveResult(SolveStatus.NO_SOLUTION_FOUND, "x", Regime.FOOTPRINT, "abc")
+    result = SolveResult(SolveStatus.INTERRUPTED, "x", Regime.FOOTPRINT, "abc")
     assert result.exhaustive is False
     assert result.candidates_proven_complete is False
+    assert (result.candidate_set, result.config, result.solver_version) == ("", None, "")
+
+
+def test_no_solution_found_is_only_said_by_a_search_that_finished() -> None:
+    with pytest.raises(ValueError, match="ran to its end"):
+        SolveResult(SolveStatus.NO_SOLUTION_FOUND, "x", Regime.FOOTPRINT, "abc")
+    finished = SolveResult(
+        SolveStatus.NO_SOLUTION_FOUND, "x", Regime.FOOTPRINT, "abc", exhaustive=True
+    )
+    assert finished.solutions == ()
+    with pytest.raises(ValueError, match="was not exhaustive"):
+        SolveResult(SolveStatus.INTERRUPTED, "x", Regime.FOOTPRINT, "abc", exhaustive=True)
+
+
+def test_a_result_round_trips_with_its_configuration_and_verdicts() -> None:
+    solution = Solution({"p00": Pose(1.0, 2.0, 0.5)}, {"overlap_depth_mm": 0.0}, valid=True)
+    result = SolveResult(
+        SolveStatus.SOLVED,
+        "python.contact_dfs",
+        Regime.FOOTPRINT,
+        "abc",
+        (solution, Solution({"p00": Pose(0.0, 0.0, 0.0)})),
+        candidate_set="corner-contact/1",
+        config=SolverConfig("python.contact_dfs", max_solutions=None, options={"node_limit": 5}),
+        solver_version="0.1.0",
+    )
+    document = json.loads(json.dumps(result.to_dict()))
+    assert document["solutions"][0]["valid"] is True
+    assert document["solutions"][1]["valid"] is None
+    assert document["config"]["maxSolutions"] is None
+    assert SolveResult.from_dict(document) == result
 
 
 def test_solved_means_there_is_a_solution() -> None:

@@ -12,6 +12,13 @@ license-files = ["LICENSE"]
 requires-python = ">=3.11"
 dependencies = []
 
+[project.optional-dependencies]
+# The independent solution validator. The solvers do not need it.
+validate = ["shapely>=2.0"]
+
+[project.scripts]
+maxplus-solve = "maxplus_solvers.cli:main"
+
 [project.urls]
 Repository = "https://github.com/maxpluslab/tiling-solvers"
 
@@ -23,6 +30,7 @@ dev = [
     "pyright>=1.1.400",
     "pytest>=8",
     "ruff>=0.9",
+    "shapely>=2.0",
 ]
 
 [tool.maturin]
