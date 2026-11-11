@@ -9,8 +9,8 @@ Each phase is sized for one working session and ends with an exit criterion that
 | 2 | Independent validator | Done |
 | 3 | Rust geometry kernel | Done |
 | 4 | Contact candidates, Python prototype, solver contract | Done |
-| 5 | Rust contact DFS | Implemented; exit tests awaiting CI |
-| 6 | CP-SAT backend | |
+| 5 | Rust contact DFS | Done |
+| 6 | CP-SAT backend | Next |
 | 7 | Benchmark and research platform | |
 
 The source corpus is 8 constructions in two variants each (relief and flat), 16 puzzles of 6 to 20 convex pieces with 3 to 8 vertices, in a 144 mm square tray.
@@ -121,7 +121,7 @@ Done, with these decisions:
 
 **Exit:** all 16 fixtures are solved and validated. Time to first solution and time to exhaust the search are reported separately. On the small fixtures the solution set equals the Python prototype's.
 
-Implemented, and to be marked done when the exit tests pass in CI on both platforms. The decisions:
+Done, with these decisions:
 
 - The exit criterion is `tests/corpus/test_rust_contact_dfs.py`. Each of the 16 fixtures is searched to the end in its own regime; every assembly returned passes the validator as an exact tiling, with continuous roofs in relief; the answer key is among them. `first_solution_s` and `exhausted_s` are separate metrics. On the five footprint fixtures the prototype can finish, the two solvers return the same assemblies, and with its additions switched off the Rust search visits exactly the prototype's nodes.
 - The lens is difficulty, not speed. Every rule beyond the prototype's is a switch in `SolverConfig.options`, and the whole search is tested to find the same assemblies with each switch on and off. What each rule buys is measured and tabulated in [algorithms.md](algorithms.md#what-makes-a-puzzle-hard-and-what-helps).
