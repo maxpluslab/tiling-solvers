@@ -15,6 +15,8 @@ dependencies = []
 [project.optional-dependencies]
 # The independent solution validator. The solvers do not need it.
 validate = ["shapely>=2.0"]
+# The CP-SAT backend, `cp_sat.placements`. The Rust solvers do not need it.
+cp-sat = ["ortools>=9.10"]
 
 [project.scripts]
 maxplus-solve = "maxplus_solvers.cli:main"
@@ -27,6 +29,7 @@ dev = [
     "hypothesis>=6.100",
     "jsonschema>=4.20",
     "maturin>=1.9,<2",
+    "ortools>=9.10",
     "pyright>=1.1.400",
     "pytest>=8",
     "ruff>=0.9",

@@ -148,6 +148,20 @@ Done, with these decisions:
 
 **Exit:** CP-SAT and the Rust DFS produce the same canonical solution sets on every fixture where both exhaust.
 
+Decisions:
+
+- The exit criterion is `tests/corpus/test_cp_sat.py`. On all 20 fixtures, in their own regimes, both solvers run to the end and return the same assemblies, compared as placed polygons by the test oracle and up to the tray's rotations; every one passes the validator. No fixture is left out.
+- The candidate set is the placements the corner search reaches (`corner-contact-reachable/1` and its relief variant), collected by running the search of `rust.contact_dfs` to its end. A set built without a search, by closing contacts under contacts, was tried first and does not stay small: over 3 000 placements and growing on a six-piece puzzle whose reachable list is 59.
+- So the solver finds nothing the search has no placements for. It checks the search's choosing, not its candidates, and it measures how hard the choice is with the geometry taken out. `candidates_proven_complete` stays false.
+- Congruent pieces share placements: a class of k pieces takes k of them. "Exactly one placement per piece" in the plan became "as many per class as it has pieces".
+- Conflicts are not only pairwise. Overlaps are stated as "at most one of the placements holding this point" for a grid of points, and the rest as pairs. Coverage, "at least one of the placements reaching this point", was not planned and is what makes the model workable: without it CP-SAT does not finish `rat1-flat` in a minute, with it in under a second.
+- Tray rotations are removed after the fact. Rust reports which listed placement each rotation turns each placement into, and a choice that is a rotation of an earlier one is dropped. The solver still makes one call into `_native`.
+- If the areas of the pieces do not add up to the target's, the model is made infeasible: without that, and without coverage, three strips too narrow for their tray could be chosen side by side. A unit test holds it.
+- Switches: the listing search's `anchor`, `cavity_pruning`, `closure_pruning` and `tray_rotations`; `coverage`; and `targeted_probes`, a cleverer statement of overlaps that turned out slower and is off.
+- Tests beyond the exit: the model's exclusions against Shapely pair by pair, cliques and covers against Shapely, hand-countable puzzles, every switch on and off, limits, and the solver broken by hand seven ways with the tests watched to fail.
+- Findings, relative to the listed placements. In relief CP-SAT needs no branch at all. On the footprints the choice is easy once the placements are listed: none to a few hundred conflicts where the search takes up to a million nodes. The search's trouble is not the number of combinations but that it meets the same dead ends again and again. [algorithms.md](algorithms.md#what-the-choosing-costs) has the tables.
+- For later phases: remembering dead ends, or reasoning from coverage as the model does, is the lead to follow on the 16-piece footprints.
+
 ## Phase 7: benchmark and research platform
 
 - `benchmarks/manifests/` and `experiments/benchmark.py`, writing JSONL with solver version, input hash, seed, tolerances and configuration.

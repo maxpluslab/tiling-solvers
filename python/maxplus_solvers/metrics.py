@@ -39,6 +39,18 @@ class SearchMetrics:
     first_solution_s: float | None = None
     # Wall time until the search had run to its end; absent if it was stopped first.
     exhausted_s: float | None = None
+    # For a solver that chooses from a list of placements: the size of the list and of
+    # the constraints on the choice, the work of the choosing, and where the time went.
+    # Absent for a solver that does not.
+    model_placements: int | None = None
+    model_cliques: int | None = None
+    model_pairs: int | None = None
+    model_covers: int | None = None
+    sat_branches: int | None = None
+    sat_conflicts: int | None = None
+    listing_s: float | None = None
+    model_s: float | None = None
+    sat_s: float | None = None
 
     def to_dict(self) -> dict[str, float]:
         """The record as ``SolveResult.metrics`` carries it. Absent values are left out."""

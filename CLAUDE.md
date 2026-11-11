@@ -30,6 +30,7 @@ cargo test -p tiling-search                         # the search, on random tili
 
 uv run maxplus-solve new5-flat --max-solutions all --validate                     # run a solver from the command line
 uv run maxplus-solve new5 --mode relief --option lookahead=true --option order=random --seed 3
+uv run maxplus-solve rat1-flat --solver cp_sat.placements --max-solutions all --option coverage=false   # CP-SAT, needs the cp-sat extra
 uv run python scripts/import_fixtures.py --source ../tropical-puzzle-lab          # regenerate fixtures and keys
 uv run python scripts/import_fixtures.py --source ../tropical-puzzle-lab --check  # compare, write nothing
 ```
@@ -40,7 +41,7 @@ uv run python scripts/import_fixtures.py --source ../tropical-puzzle-lab --check
 
 - `crates/tiling-core`: domain types. No dependencies on the other crates.
 - `crates/tiling-geometry`: convex geometry, contact matching, candidate generation, cavities. Depends on core. Primitives take `&[Vec2]`; proptest strategies are in `src/testing.rs`, public behind the `testing` feature so that `tiling-search` can test on the same random tilings.
-- `crates/tiling-search`: custom solvers, one module each (`contact_dfs`), and `canonical`, which decides when two assemblies are the same. Depends on core and geometry.
+- `crates/tiling-search`: custom solvers, one module each (`contact_dfs`), `enumerate`, which lists placements and their conflicts for solvers that choose from a list, and `canonical`, which decides when two assemblies are the same. Depends on core and geometry.
 - `crates/tiling-py`: PyO3 bindings, built by maturin as `maxplus_solvers._native`. Converts types and forwards calls; no algorithms.
 - `python/maxplus_solvers`: the user-facing package: models, importers, solver adapters, validation, experiments. When a function is added to `_native`, add it to `_native.pyi` too. `_native` takes a polygon as a sequence of pairs, a pose as `(x, y, theta)` and a roof as `(z0, gx, gy)`.
   - `models.py` holds the contracts; `schemas/instance-v1.json` is their JSON form and `tiling-core` mirrors the instance types. Change all three together.
@@ -87,7 +88,8 @@ Rules:
 - **Slow tests still run.** The `slow` marker is for deselecting locally (`-m "not slow"`); CI runs everything.
 - **Completeness and uniqueness are explicit claims.** A result says whether the search was exhaustive and over which candidate set. "No solution found" and CP-SAT `INFEASIBLE` are relative to the candidates generated unless completeness is proven.
 - **Layering is one-way:** core ← geometry ← search ← py. Python reaches Rust only through `_native`.
-- **Production solvers cross the Python/Rust boundary once per solve.** Prototypes may call individual geometry primitives; a Rust solver receives the instance and runs to completion.
+- **Production solvers cross the Python/Rust boundary once per solve.** Prototypes may call individual geometry primitives; a Rust solver receives the instance and runs to completion. `cp_sat.placements` makes its one call for the list of placements and their conflicts; everything it then needs, down to which placement a tray rotation turns each into, is in that answer.
+- **A model solver knows no geometry.** `solvers/cp_sat.py` builds constraints from the indices `_native.placement_model` returns and never computes with a placement's coordinates. CP-SAT runs with one worker and no objective, so that its counts can be repeated.
 - **Units are millimetres and radians,** matching the browser player. Polygons are convex and counter-clockwise, in local coordinates about the area centroid. A pose rotates by `theta` then translates by `(x, y)`.
 - **`f64` with explicit tolerances is not exactness.** Don't describe a floating-point result as a mathematical proof.
 - **Optional dependencies stay optional.** OR-Tools, Shapely and the analysis stack are extras; the Rust solvers must run without them.

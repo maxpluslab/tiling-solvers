@@ -696,6 +696,18 @@ fn same_assembly(
     Ok(symmetry.same(&first, &second))
 }
 
+fn time_limit_of(seconds: Option<f64>) -> PyResult<Option<Duration>> {
+    match seconds {
+        None => Ok(None),
+        Some(seconds) if seconds.is_finite() && seconds >= 0.0 => {
+            Ok(Some(Duration::from_secs_f64(seconds)))
+        }
+        Some(_) => Err(PyValueError::new_err(
+            "time_limit_s must be finite and not negative",
+        )),
+    }
+}
+
 /// What `contact_dfs` found, and the work it took.
 #[pyclass(frozen, get_all, module = "maxplus_solvers._native")]
 struct ContactDfsOutcome {
@@ -767,17 +779,7 @@ fn contact_dfs(
 
     let (shapes, tolerance) =
         puzzle_parts(pieces, roofs, length_tol, angle_tol, slope_tol, height_tol)?;
-    let time_limit = match time_limit_s {
-        None => None,
-        Some(seconds) if seconds.is_finite() && seconds >= 0.0 => {
-            Some(Duration::from_secs_f64(seconds))
-        }
-        Some(_) => {
-            return Err(PyValueError::new_err(
-                "time_limit_s must be finite and not negative",
-            ));
-        }
-    };
+    let time_limit = time_limit_of(time_limit_s)?;
     let options = Options {
         max_solutions,
         time_limit,
@@ -793,6 +795,7 @@ fn contact_dfs(
         lookahead,
         order,
         seed,
+        ..Options::default()
     };
     let outcome = py
         .detach(|| solve(target, shapes, tolerance, &options))
@@ -826,6 +829,134 @@ fn contact_dfs(
     })
 }
 
+/// Placements to choose from and the constraints on the choice: what
+/// `placement_model` built.
+#[pyclass(frozen, get_all, module = "maxplus_solvers._native")]
+struct PlacementModel {
+    /// The classes of congruent pieces, each as its members' indices.
+    classes: Vec<Vec<usize>>,
+    /// For each placement, the index of its class in `classes`.
+    placement_class: Vec<usize>,
+    /// For each placement, a pose for each member of its class, in the class's order.
+    placement_poses: Vec<Vec<PoseArg>>,
+    /// Sets of placements of which an assembly holds at most one.
+    cliques: Vec<Vec<u32>>,
+    /// Conflicting pairs that no clique holds.
+    pairs: Vec<(u32, u32)>,
+    /// Sets of placements of which an assembly holds at least one.
+    covers: Vec<Vec<u32>>,
+    /// The areas of the pieces add up to the target's. If not, no choice is an assembly.
+    areas_add_up: bool,
+    /// For each turn of the tray onto itself, the placement each placement becomes.
+    turned: Vec<Vec<Option<u32>>>,
+    overlapping_pairs: u64,
+    roof_step_pairs: u64,
+    /// The search that collected the placements ran to its end.
+    exhausted: bool,
+    /// Assemblies that search found on its way.
+    search_solutions: usize,
+    nodes: u64,
+    backtracks: u64,
+    placements: u64,
+    max_depth: u64,
+    candidates_generated: u64,
+    rejected_outside: u64,
+    rejected_overlap: u64,
+    rejected_roof: u64,
+    pruned_cavity: u64,
+    pruned_closure: u64,
+    pruned_anchor: u64,
+    search_time_s: f64,
+    conflict_time_s: f64,
+}
+
+/// The placements the corner search reaches and their conflicts, built in
+/// Rust without the interpreter lock.
+#[pyfunction]
+#[pyo3(signature = (
+    target, pieces, roofs=None, *,
+    length_tol, angle_tol, slope_tol, height_tol=None,
+    time_limit_s=None, node_limit=None, max_placements=None,
+    all_tray_rotations=false, anchor=true, cavity_pruning=true, closure_pruning=true,
+    targeted_probes=false,
+))]
+#[allow(clippy::too_many_arguments)]
+fn placement_model(
+    py: Python<'_>,
+    target: Vec<[f64; 2]>,
+    pieces: Vec<Vec<[f64; 2]>>,
+    roofs: Option<Vec<RoofArg>>,
+    length_tol: f64,
+    angle_tol: f64,
+    slope_tol: f64,
+    height_tol: Option<f64>,
+    time_limit_s: Option<f64>,
+    node_limit: Option<u64>,
+    max_placements: Option<usize>,
+    all_tray_rotations: bool,
+    anchor: bool,
+    cavity_pruning: bool,
+    closure_pruning: bool,
+    targeted_probes: bool,
+) -> PyResult<PlacementModel> {
+    use tiling_search::contact_dfs::{Options, Order, TrayRotations};
+    use tiling_search::enumerate::reachable;
+
+    let (shapes, tolerance) =
+        puzzle_parts(pieces, roofs, length_tol, angle_tol, slope_tol, height_tol)?;
+    let options = Options {
+        time_limit: time_limit_of(time_limit_s)?,
+        node_limit,
+        max_placements,
+        tray_rotations: if all_tray_rotations {
+            TrayRotations::All
+        } else {
+            TrayRotations::Once
+        },
+        anchor,
+        cavity_pruning,
+        closure_pruning,
+        // The order of a whole search does not change what it places.
+        order: Order::Generated,
+        ..Options::default()
+    };
+    let model = py
+        .detach(|| reachable(target, shapes, tolerance, &options, targeted_probes))
+        .map_err(refused)?;
+    let stats = model.search;
+    Ok(PlacementModel {
+        classes: model.classes,
+        placement_class: model.class_of,
+        placement_poses: model
+            .poses
+            .into_iter()
+            .map(|poses| poses.into_iter().map(|p| (p.x, p.y, p.theta)).collect())
+            .collect(),
+        cliques: model.conflicts.cliques,
+        pairs: model.conflicts.pairs,
+        covers: model.conflicts.covers,
+        turned: model.turned,
+        areas_add_up: model.areas_add_up,
+        overlapping_pairs: model.conflicts.overlapping,
+        roof_step_pairs: model.conflicts.roof_steps,
+        exhausted: model.exhausted,
+        search_solutions: model.search_solutions,
+        nodes: stats.nodes,
+        backtracks: stats.backtracks,
+        placements: stats.placements,
+        max_depth: stats.max_depth,
+        candidates_generated: stats.candidates.generated,
+        rejected_outside: stats.candidates.rejected_outside,
+        rejected_overlap: stats.candidates.rejected_overlap,
+        rejected_roof: stats.candidates.rejected_roof,
+        pruned_cavity: stats.pruned_cavity,
+        pruned_closure: stats.pruned_closure,
+        pruned_anchor: stats.pruned_anchor,
+        search_time_s: model.search_time.as_secs_f64(),
+        conflict_time_s: model.conflict_time.as_secs_f64(),
+    })
+}
+
 #[pymodule]
 fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(version, m)?)?;
@@ -854,5 +985,7 @@ fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(same_assembly, m)?)?;
     m.add_function(wrap_pyfunction!(contact_dfs, m)?)?;
     m.add_class::<ContactDfsOutcome>()?;
+    m.add_function(wrap_pyfunction!(placement_model, m)?)?;
+    m.add_class::<PlacementModel>()?;
     Ok(())
 }
