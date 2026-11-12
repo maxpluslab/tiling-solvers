@@ -12,9 +12,9 @@ Each phase is sized for one working session and ends with an exit criterion that
 | 5 | Rust contact DFS | Done |
 | 6 | CP-SAT backend | Done |
 | 7 | Benchmark and research platform | Done |
-| 8 | The edge-to-edge assumption | In progress |
+| 8 | The edge-to-edge assumption | Done |
 
-The source corpus is 8 constructions in two variants each (relief and flat), 16 puzzles of 6 to 20 convex pieces with 3 to 8 vertices, in a 144 mm square tray.
+The source corpus is 9 constructions in two variants each (relief and flat), 18 puzzles of 6 to 27 convex pieces with 3 to 8 vertices, in a 144 mm square tray.
 
 ## Phase 0: repository skeleton
 
@@ -196,7 +196,7 @@ Tropical puzzles are cut from a polyhedral complex, so their pieces meet edge to
 
 **Exit:** on every corpus fixture, the search under the assumption finds exactly the assemblies of the plain search that an independent check calls edge to edge, with the two rules on and off, and the answer key among them. On `cor1-flat`, whose plain search does not end, everything the assumed search finds is edge to edge by that check and valid, and the answer key is among it.
 
-Decisions so far:
+Done, with these decisions:
 
 - The exit criterion is `tests/corpus/test_edge_to_edge.py::test_the_assumption_finds_exactly_the_edge_to_edge_assemblies`. The independent check is `support.geometry.is_edge_to_edge`, by twin edges, where the search decides by vertices inside edges.
 - An assumption is not a pruning rule, because it changes what a whole search finds. The two rules that follow from it are pruning rules within it, tested as such.
