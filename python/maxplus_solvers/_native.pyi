@@ -112,7 +112,11 @@ class Assembly:
         angle_tol: float,
         slope_tol: float,
         height_tol: float | None = None,
+        edge_to_edge: bool = False,
+        equal_edges: bool = True,
+        wall_edges: bool = True,
     ) -> Assembly: ...
+    def has_partner(self, piece: int, edge: int) -> bool: ...
     @property
     def piece_count(self) -> int: ...
     @property
@@ -186,6 +190,10 @@ class ContactDfsOutcome:
     @property
     def rejected_roof(self) -> int: ...
     @property
+    def rejected_junction(self) -> int: ...
+    @property
+    def rejected_wall(self) -> int: ...
+    @property
     def pruned_cavity(self) -> int: ...
     @property
     def pruned_closure(self) -> int: ...
@@ -225,6 +233,9 @@ def contact_dfs(
     lookahead: bool = False,
     order: str = "matched-edges",
     seed: int = 0,
+    edge_to_edge: bool = False,
+    equal_edges: bool = True,
+    wall_edges: bool = True,
 ) -> ContactDfsOutcome: ...
 
 @final

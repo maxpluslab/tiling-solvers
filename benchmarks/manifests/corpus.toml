@@ -1,6 +1,9 @@
 name = "corpus"
 description = """
 Every registered solver on the whole corpus, each search run to its end where it can be.
+The two searches that would not end, cor1-flat's, stop at a node limit well above what
+any other corpus puzzle needs (new1-flat: 1 064 878), so that where they stop does not
+depend on the machine.
 `maxplus-bench run benchmarks/manifests/corpus.toml --no-times` reproduces
 benchmarks/results/corpus.md; a test holds the two together.
 """
@@ -10,9 +13,15 @@ fixtures = ["corpus"]
 [[runs]]
 solver = "rust.contact_dfs"
 
+[runs.options]
+node_limit = 1500000
+
 # CP-SAT choosing among the placements that search reaches.
 [[runs]]
 solver = "cp_sat.placements"
+
+[runs.options]
+node_limit = 1500000
 
 # The Python prototype knows footprints only, and counts every orientation of the tray.
 # It is given a node limit, not a time limit, so that where it stops does not depend on

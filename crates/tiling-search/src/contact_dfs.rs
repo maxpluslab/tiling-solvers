@@ -54,7 +54,7 @@ use std::time::{Duration, Instant};
 use tiling_core::{Pose, Vec2};
 use tiling_geometry::{
     Assembly, AssemblyError, CandidatePlacement, CandidateStats, Cavity, ContactTolerance, Corner,
-    Shape, centroid, least_width, signed_area, transform,
+    Meeting, Shape, centroid, least_width, signed_area, transform,
 };
 
 use crate::canonical::{Placement, Symmetry};
@@ -96,6 +96,11 @@ pub struct Options {
     pub collect_placements: bool,
     /// Stop once this many distinct placements have been collected.
     pub max_placements: Option<usize>,
+    /// What is assumed about how pieces meet. Unlike the rules above, assuming
+    /// that they meet edge to edge changes what the search can find: only
+    /// assemblies without a T between pieces. Its two rules, like the others,
+    /// change only the work.
+    pub meeting: Meeting,
 }
 
 /// The order in which the candidates of a node are tried. It decides how soon
@@ -126,6 +131,7 @@ impl Default for Options {
             seed: 0,
             collect_placements: false,
             max_placements: None,
+            meeting: Meeting::default(),
         }
     }
 }
@@ -804,7 +810,7 @@ pub fn solve(
         .sum();
     let symmetry_shapes = shapes.clone();
     // Refuses anything that is not a convex counter-clockwise polygon.
-    let assembly = Assembly::new(target, shapes, tolerance)?;
+    let assembly = Assembly::meeting(target, shapes, tolerance, options.meeting)?;
     let widths: Vec<f64> = symmetry_shapes
         .iter()
         .map(|s| least_width(&s.polygon))
@@ -878,7 +884,7 @@ mod tests {
     use proptest::prelude::*;
     use tiling_core::Roof;
     use tiling_geometry::EdgeGraph;
-    use tiling_geometry::testing::{TOL, Tiling, tiling};
+    use tiling_geometry::testing::{TOL, Tiling, is_edge_to_edge, line_tiling, tiling};
 
     fn rectangle(w: f64, h: f64) -> Vec<Vec2> {
         vec![
@@ -1285,6 +1291,129 @@ mod tests {
             let outcome = run(&tiling.target, &broken, &whole());
             prop_assert!(outcome.exhausted);
             prop_assert!(!outcome.solutions.iter().any(|s| same.same(s, &tiling.poses)));
+        }
+    }
+
+    /// The assumption, with the rules that follow from it switched as given.
+    fn assuming(equal_edges: bool, wall_edges: bool) -> Options {
+        Options {
+            meeting: Meeting {
+                edge_to_edge: true,
+                equal_edges,
+                wall_edges,
+            },
+            ..whole()
+        }
+    }
+
+    /// Every way of switching the two rules.
+    fn every_assumed() -> [Options; 4] {
+        [
+            assuming(true, true),
+            assuming(true, false),
+            assuming(false, true),
+            assuming(false, false),
+        ]
+    }
+
+    fn world_of(shapes: &[Shape], poses: &[Pose]) -> Vec<Vec<Vec2>> {
+        shapes
+            .iter()
+            .zip(poses)
+            .map(|(shape, pose)| transform(&shape.polygon, pose))
+            .collect()
+    }
+
+    /// The assemblies among `found` whose pieces meet edge to edge, by the twin-edge check.
+    fn without_a_t(target: &[Vec2], shapes: &[Shape], found: &[Vec<Pose>]) -> Vec<Vec<Pose>> {
+        found
+            .iter()
+            .filter(|poses| is_edge_to_edge(target, &world_of(shapes, poses), 1e-6))
+            .cloned()
+            .collect()
+    }
+
+    #[test]
+    fn a_block_and_two_squares_fit_only_in_a_t() {
+        // A 4 by 4 tray: the block along one wall, the squares beside each other on
+        // it. Turns of the tray and the squares' exchange make that one assembly.
+        let target = tray(4.0, 4.0);
+        let shapes = bare(&[
+            rectangle(4.0, 2.0),
+            rectangle(2.0, 2.0),
+            rectangle(2.0, 2.0),
+        ]);
+        let plain = run(&target, &shapes, &whole());
+        assert!(plain.exhausted);
+        assert_eq!(plain.solutions.len(), 1);
+        assert!(without_a_t(&target, &shapes, &plain.solutions).is_empty());
+        for options in every_assumed() {
+            let assumed = run(&target, &shapes, &options);
+            assert!(
+                assumed.exhausted && assumed.solutions.is_empty(),
+                "{options:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn two_strips_meet_edge_to_edge_and_are_found_either_way() {
+        let target = tray(4.0, 4.0);
+        let shapes = bare(&[rectangle(2.0, 4.0), rectangle(2.0, 4.0)]);
+        let plain = run(&target, &shapes, &whole());
+        assert_eq!(plain.solutions.len(), 1);
+        for options in every_assumed() {
+            let assumed = run(&target, &shapes, &options);
+            assert_eq!(assumed.solutions, plain.solutions, "{options:?}");
+        }
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(64))]
+
+        /// Assuming edge to edge narrows the search to exactly the assemblies
+        /// without a T, as a separately written check decides them; and the two
+        /// rules that follow from the assumption change the work only. Chord-cut
+        /// tilings have T's, so the narrowed set is often empty.
+        #[test]
+        fn the_assumption_keeps_exactly_the_assemblies_without_a_t(tiling in tiling()) {
+            let shapes = bare(&tiling.local);
+            let symmetry = symmetry(&tiling.target, &shapes);
+            let plain = run(&tiling.target, &shapes, &whole());
+            prop_assert!(plain.exhausted);
+            let kept = without_a_t(&tiling.target, &shapes, &plain.solutions);
+            for options in every_assumed() {
+                let assumed = run(&tiling.target, &shapes, &options);
+                prop_assert!(assumed.exhausted);
+                prop_assert!(
+                    same_sets(&symmetry, &assumed.solutions, &kept),
+                    "{} found against {} kept with {:?}",
+                    assumed.solutions.len(), kept.len(), options.meeting
+                );
+            }
+        }
+
+        /// The cells of a line arrangement meet edge to edge, so the assumption
+        /// holds of the tiling they were cut from, which is found, once, with
+        /// the rules on or off; and what is found is what the plain search finds
+        /// without a T.
+        #[test]
+        fn a_line_arrangement_is_found_under_the_assumption(tiling in line_tiling()) {
+            prop_assert!(is_edge_to_edge(&tiling.target, &tiling.world, 1e-6));
+            let shapes = bare(&tiling.local);
+            let symmetry = symmetry(&tiling.target, &shapes);
+            let plain = run(&tiling.target, &shapes, &whole());
+            prop_assert!(plain.exhausted);
+            let kept = without_a_t(&tiling.target, &shapes, &plain.solutions);
+            for options in every_assumed() {
+                let assumed = run(&tiling.target, &shapes, &options);
+                prop_assert!(assumed.exhausted);
+                let hits = assumed.solutions.iter().filter(|s| symmetry.same(s, &tiling.poses)).count();
+                prop_assert_eq!(hits, 1);
+                prop_assert!(same_sets(&symmetry, &assumed.solutions, &kept), "{:?}", options.meeting);
+                // The assumption can only take work away from the plain search.
+                prop_assert!(assumed.stats.nodes <= plain.stats.nodes);
+            }
         }
     }
 }

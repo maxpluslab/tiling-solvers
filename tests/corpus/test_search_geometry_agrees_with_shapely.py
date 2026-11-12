@@ -71,7 +71,12 @@ def roofs_of(instance: PuzzleInstance) -> list[tuple[float, float, float]] | Non
 
 def assembly(instance: PuzzleInstance) -> Any:
     return _native.Assembly(
-        instance.target, [piece.polygon for piece in instance.pieces], roofs_of(instance), **TOL
+        instance.target,
+        [piece.polygon for piece in instance.pieces],
+        roofs_of(instance),
+        length_tol=TOL["length_tol"],
+        angle_tol=TOL["angle_tol"],
+        slope_tol=TOL["slope_tol"],
     )
 
 

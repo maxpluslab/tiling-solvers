@@ -17,7 +17,7 @@ contact_scale = [1.0, 10.0, 100.0, 1000.0, 3000.0, 6000.0, 12000.0]
 [[runs]]
 solver = "rust.contact_dfs"
 time_limit_s = 30.0
-fixtures = ["new1", "new2", "new3", "new4", "new5", "rat1", "rat2", "rev2"]
+fixtures = ["cor1", "new1", "new2", "new3", "new4", "new5", "rat1", "rat2", "rev2"]
 contact_scale = [1.0, 100.0, 1000.0, 6000.0]
 
 [runs.options]

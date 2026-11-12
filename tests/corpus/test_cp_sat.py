@@ -3,7 +3,9 @@
 On every fixture, in its own regime, ``cp_sat.placements`` and
 ``rust.contact_dfs`` are both run to the end, and the two sets of assemblies
 are compared polygon by polygon with the test oracle. Both exhaust on every
-fixture, so the comparison leaves none out.
+fixture but ``cor1-flat``, added after the phase closed, whose search has not
+been seen to end; CP-SAT lists its placements with that search, so it is left
+out by name.
 
 The agreement is less than it sounds and more than nothing. CP-SAT chooses
 among the placements a run of the same search listed, so it cannot find an
@@ -27,8 +29,9 @@ CP_SAT = "cp_sat.placements"
 DFS = "rust.contact_dfs"
 
 PIECES = {entry["id"]: entry["pieceCount"] for entry in corpus.index()["fixtures"]}
-CORPUS = corpus.fixture_ids(kind="corpus")
-FLAT = corpus.fixture_ids(kind="corpus", regime="footprint")
+EVERY = corpus.fixture_ids(kind="corpus")
+CORPUS = [f for f in EVERY if f not in corpus.UNFINISHED]
+FLAT = [f for f in corpus.fixture_ids(kind="corpus", regime="footprint") if f in CORPUS]
 RELIEF = corpus.fixture_ids(kind="corpus", regime="relief")
 SYNTHETIC = corpus.fixture_ids(kind="synthetic")
 SMALL = [f for f in FLAT if PIECES[f] <= 11]
@@ -81,7 +84,8 @@ def same_up_to_turns(instance: PuzzleInstance, a: list[Any], b: list[Any]) -> bo
 
 
 def test_the_exit_criterion_covers_every_fixture() -> None:
-    assert len(CORPUS) == 16 and len(SYNTHETIC) == 4
+    assert len(EVERY) == 18 and len(CORPUS) == 17 and len(SYNTHETIC) == 4
+    assert sorted(set(EVERY) - set(CORPUS)) == ["cor1-flat"]
     assert set(FLAT) >= SLOW | set(ASSEMBLIES)
 
 

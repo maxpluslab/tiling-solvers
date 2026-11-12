@@ -6,7 +6,14 @@ import sys
 from collections.abc import Sequence
 
 from maxplus_solvers.api import available_solvers, load_puzzle, solve
-from maxplus_solvers.models import InstanceError, Regime, SolverConfig, SolveResult, SolveStatus
+from maxplus_solvers.models import (
+    Assumption,
+    InstanceError,
+    Regime,
+    SolverConfig,
+    SolveResult,
+    SolveStatus,
+)
 
 # Exit codes.
 SOLVED = 0
@@ -47,6 +54,14 @@ def _parser() -> argparse.ArgumentParser:
         choices=[regime.value for regime in Regime],
         help="the information the solver may use (default: footprint)",
     )
+    parser.add_argument(
+        "--assume",
+        action="append",
+        default=[],
+        choices=[assumption.value for assumption in Assumption],
+        help="something to take for granted about the assembly, such as edge-to-edge; "
+        "it narrows what the search looks for",
+    )
     parser.add_argument("--time-limit", type=float, metavar="SECONDS")
     parser.add_argument(
         "--max-solutions",
@@ -81,6 +96,10 @@ def _summary(result: SolveResult) -> str:
         reach = "the search was stopped before its end"
     proven = "proven" if result.candidates_proven_complete else "not proven"
     lines.append(f"  {reach}; candidates {result.candidate_set}, {proven} complete")
+    if result.assumptions:
+        lines.append(
+            f"  assuming {', '.join(result.assumptions)}: other assemblies are not looked for"
+        )
     for index, solution in enumerate(result.solutions):
         verdict = {None: "not validated", True: "valid", False: "INVALID"}[solution.valid]
         lines.append(f"  solution {index + 1}: {len(solution.poses)} pieces, {verdict}")
@@ -116,6 +135,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             max_solutions=args.max_solutions,
             seed=args.seed,
             options=dict(args.option),
+            assumptions=tuple(args.assume),
         )
         result = solve(puzzle, config, validate=args.validate)
     except (FileNotFoundError, InstanceError, ValueError) as error:

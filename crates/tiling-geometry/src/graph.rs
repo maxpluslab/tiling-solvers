@@ -12,6 +12,12 @@
 //! continuous along a shared edge if their slopes along it agree, and the two
 //! edges run in opposite directions, so the slopes along them must cancel.
 //!
+//! If the pieces are known to meet edge to edge (see [`Meeting`]), lengths do
+//! prove something: a piece edge lies against the whole of one edge of one
+//! other piece, or on the tray. Arcs can then ask for equal lengths and, with
+//! roofs, equal heights at both ends; and an edge with no such partner on any
+//! other piece can only lie on the tray.
+//!
 //! The same signatures say which pieces are interchangeable and which
 //! placements of one piece are the same placement, so that the search does not
 //! count one assembly many times.
@@ -20,6 +26,44 @@ use tiling_core::{Roof, Vec2};
 
 use crate::contact::{ContactTolerance, EdgeRef};
 use crate::edges::{EdgeSignature, edge_signatures};
+
+/// What is assumed about how pieces meet, and which consequences are used.
+///
+/// The default assumes nothing: a vertex of one piece may lie anywhere along
+/// an edge of another. With `edge_to_edge`, no vertex of a piece lies strictly
+/// inside an edge of another piece, as in a puzzle cut from a polyhedral
+/// complex. That is an assumption about the assembly sought, not a pruning
+/// rule: it changes what a search can find. The other two fields are pruning
+/// rules that follow from it, and are ignored without it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct Meeting {
+    /// Refuse a placement that puts a vertex strictly inside another piece's edge.
+    pub edge_to_edge: bool,
+    /// Let a piece edge lie against a piece edge only if the two are equally
+    /// long and, with roofs, equally high at both ends.
+    pub equal_edges: bool,
+    /// Keep a piece edge that no other piece's edge can lie against on the tray.
+    pub wall_edges: bool,
+}
+
+impl Meeting {
+    /// The assumption with both of its rules.
+    pub fn edge_to_edge() -> Meeting {
+        Meeting {
+            edge_to_edge: true,
+            equal_edges: true,
+            wall_edges: true,
+        }
+    }
+
+    pub(crate) fn uses_equal_edges(&self) -> bool {
+        self.edge_to_edge && self.equal_edges
+    }
+
+    pub(crate) fn uses_wall_edges(&self) -> bool {
+        self.edge_to_edge && self.wall_edges
+    }
+}
 
 /// A piece as the candidate generator sees it: a local polygon and its roof, if any.
 #[derive(Debug, Clone, PartialEq)]
@@ -36,6 +80,9 @@ pub struct EdgeGraph {
     edge_count: usize,
     /// `arcs[fixed * edge_count + mover]` over piece edges. Tray edges accept every piece edge.
     arcs: Vec<bool>,
+    /// For each piece edge, whether some edge of another piece could lie
+    /// against the whole of it: slopes cancelling, equal length, equal heights.
+    partnered: Vec<bool>,
     classes: Vec<usize>,
     /// For each piece, the turn that takes its class's first piece onto it.
     turns: Vec<f64>,
@@ -76,7 +123,19 @@ pub fn rotation_order(polygon: &[Vec2], tolerance: &ContactTolerance) -> usize {
 }
 
 impl EdgeGraph {
+    /// The graph when nothing is assumed about how pieces meet.
     pub fn build(shapes: &[Shape], tolerance: &ContactTolerance) -> EdgeGraph {
+        EdgeGraph::build_for(shapes, tolerance, false)
+    }
+
+    /// With `equal_edges`, an arc also needs the two edges to be equally long
+    /// and, with roofs, equally high at both ends: what holds for every
+    /// contact between pieces that meet edge to edge.
+    pub fn build_for(
+        shapes: &[Shape],
+        tolerance: &ContactTolerance,
+        equal_edges: bool,
+    ) -> EdgeGraph {
         let signatures: Vec<Vec<EdgeSignature>> = shapes
             .iter()
             .map(|s| edge_signatures(&s.polygon, s.roof.as_ref()))
@@ -88,6 +147,17 @@ impl EdgeGraph {
             edge_count += piece.len();
         }
 
+        // The mover's edge runs the other way, so its start meets the fixed edge's end.
+        let level = |x: Option<f64>, y: Option<f64>| match (x, y) {
+            (Some(x), Some(y)) => (x - y).abs() <= tolerance.height,
+            _ => true,
+        };
+        let whole = |a: &EdgeSignature, b: &EdgeSignature| {
+            (a.length - b.length).abs() <= tolerance.length
+                && level(a.height_start, b.height_end)
+                && level(a.height_end, b.height_start)
+        };
+        let mut partnered = vec![false; edge_count];
         let mut arcs = vec![false; edge_count * edge_count];
         for (p, fixed) in signatures.iter().enumerate() {
             for (q, mover) in signatures.iter().enumerate() {
@@ -101,7 +171,10 @@ impl EdgeGraph {
                             (Some(x), Some(y)) => (x + y).abs() <= tolerance.slope,
                             _ => true,
                         };
-                        arcs[(offsets[p] + i) * edge_count + offsets[q] + j] = fits;
+                        let fits_whole = fits && whole(a, b);
+                        partnered[offsets[p] + i] |= fits_whole;
+                        arcs[(offsets[p] + i) * edge_count + offsets[q] + j] =
+                            if equal_edges { fits_whole } else { fits };
                     }
                 }
             }
@@ -143,6 +216,7 @@ impl EdgeGraph {
             offsets,
             edge_count,
             arcs,
+            partnered,
             classes,
             turns,
             symmetry,
@@ -162,6 +236,13 @@ impl EdgeGraph {
                     + edge]
             }
         }
+    }
+
+    /// Whether some edge of another piece could lie against the whole of this
+    /// one. An edge without such a partner lies on the tray in every assembly
+    /// whose pieces meet edge to edge.
+    pub fn has_partner(&self, piece: usize, edge: usize) -> bool {
+        self.partnered[self.offsets[piece] + edge]
     }
 
     /// Number of piece edges.

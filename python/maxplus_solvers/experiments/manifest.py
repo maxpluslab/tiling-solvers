@@ -10,6 +10,7 @@ A manifest is a TOML file::
     [[runs]]
     solver = "rust.contact_dfs"
     mode = "own"                   # "own": the fixture's regime; or "footprint", "relief"
+    assume = ["none", "edge-to-edge"]   # optional: what the solver takes for granted
     max_solutions = "all"          # or a number
     time_limit_s = 60.0            # optional
     seeds = [0]
@@ -20,7 +21,7 @@ A manifest is a TOML file::
     order = ["matched-edges", "random"]
     lookahead = false
 
-Every list among ``mode``, ``seeds``, ``contact_scale`` and the option values
+Every list among ``mode``, ``assume``, ``seeds``, ``contact_scale`` and the option values
 is a factor, and a ``[[runs]]`` block stands for the product of its factors on
 each fixture. The order of the product is fixed, so a manifest names the same
 runs in the same order every time.
@@ -34,13 +35,15 @@ from pathlib import Path
 from typing import Any
 
 from maxplus_solvers import solvers
-from maxplus_solvers.models import Regime
+from maxplus_solvers.models import Assumption, Regime
 
 GROUPS = ("corpus", "synthetic", "all")
 OWN = "own"
+NOTHING = "none"
 _RUN_KEYS = {
     "solver",
     "mode",
+    "assume",
     "max_solutions",
     "time_limit_s",
     "seeds",
@@ -61,6 +64,8 @@ class RunBlock:
 
     solver: str
     modes: tuple[str, ...] = (OWN,)
+    # Each is "none" or an assumption's name.
+    assumes: tuple[str, ...] = (NOTHING,)
     max_solutions: int | None = None
     time_limit_s: float | None = None
     seeds: tuple[int, ...] = (0,)
@@ -88,6 +93,8 @@ class Run:
     solver: str
     # A regime, or "own" for the fixture's.
     mode: str
+    # "none", or the assumption the solver is to make.
+    assume: str
     max_solutions: int | None
     time_limit_s: float | None
     seed: int
@@ -122,6 +129,10 @@ def _block(data: Any, where: str) -> RunBlock:
     for mode in modes:
         if mode != OWN and mode not in {regime.value for regime in Regime}:
             raise ManifestError(f"{where}.mode: {mode!r} is neither 'own' nor a regime")
+    assumes = tuple(str(a) for a in _listed(data.get("assume", NOTHING), f"{where}.assume"))
+    for assume in assumes:
+        if assume != NOTHING and assume not in {a.value for a in Assumption}:
+            raise ManifestError(f"{where}.assume: {assume!r} is neither 'none' nor an assumption")
     limit = data.get("max_solutions", "all")
     if limit == "all":
         max_solutions = None
@@ -149,6 +160,7 @@ def _block(data: Any, where: str) -> RunBlock:
     return RunBlock(
         solver=solver,
         modes=modes,
+        assumes=assumes,
         max_solutions=max_solutions,
         time_limit_s=time_limit,
         seeds=tuple(seeds),
@@ -228,13 +240,14 @@ def expand(manifest: Manifest, fixtures: Sequence[str]) -> Iterator[Run]:
             if block.fixtures and fixture not in block.fixtures:
                 continue
             settings = itertools.product(*(block.options[name] for name in names))
-            for mode, scale, seed, values in itertools.product(
-                block.modes, block.contact_scales, block.seeds, list(settings)
+            for mode, assume, scale, seed, values in itertools.product(
+                block.modes, block.assumes, block.contact_scales, block.seeds, list(settings)
             ):
                 yield Run(
                     fixture=fixture,
                     solver=block.solver,
                     mode=mode,
+                    assume=assume,
                     max_solutions=block.max_solutions,
                     time_limit_s=block.time_limit_s,
                     seed=seed,

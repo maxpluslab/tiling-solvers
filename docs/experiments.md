@@ -78,12 +78,13 @@ One metric was added for this. `backtrack_depth` is the sum, over dead ends, of 
 
 ## The corpus table
 
-[`benchmarks/results/corpus.md`](../benchmarks/results/corpus.md) has all 40 rows. What it shows:
+[`benchmarks/results/corpus.md`](../benchmarks/results/corpus.md) has all 44 rows. What it shows:
 
-- Both production solvers finish every corpus puzzle and agree on the assemblies; every assembly passes the validator. `cp_sat.placements` shows the search counts of the listing search it starts from, which is `rust.contact_dfs`.
-- With roofs a whole search takes 26 to 94 nodes. Without, 45 to 1 064 878.
+- Both production solvers finish every corpus puzzle but `cor1-flat` and agree on the assemblies; every assembly passes the validator. `cp_sat.placements` shows the search counts of the listing search it starts from, which is `rust.contact_dfs` taking candidates in the order they are generated. A whole search visits the same nodes in any order, so where both finish the counts are the same; stopped at the limit on `cor1-flat` they are not, since the two have gone down different branches by then.
+- `cor1-flat`, 27 pieces without their roofs, is stopped at the manifest's node limit of 1 500 000 without an assembly, by both. The limit is there so that the table is the same on any machine; by hand the search was stopped at 3 000 000 nodes, also without one.
+- With roofs a whole search takes 26 to 94 nodes, except on `cor1`, built to be hard with its roofs on: 1 529. Without roofs, 45 to 1 064 878 where it ends.
 - The footprints have one assembly each, except `rat1-flat` (101) and `rat2-flat` (2).
-- The prototype, without tray symmetry or pruning, finishes five of the eight footprints within 50 000 nodes and returns each assembly in the tray's four orientations.
+- The prototype, without tray symmetry or pruning, finishes five of the eight footprints it is given within 50 000 nodes and returns each assembly in the tray's four orientations. It is not given `cor1-flat`.
 
 ## Tolerance
 
@@ -249,12 +250,18 @@ What it shows, with eight points behind each coefficient:
 
 Correlations are taken within a regime only. Across both, any number that differs between footprints and reliefs correlates with the cost, because the roofs change the cost a thousandfold.
 
+## Edge to edge
+
+`maxplus-bench run benchmarks/manifests/edge_to_edge.toml --no-times` reproduces `benchmarks/results/edge_to_edge.md`: every corpus puzzle in its own regime, assuming nothing and assuming that the pieces meet edge to edge, with the assumption's two rules crossed. A manifest says `assume = "edge-to-edge"`, or a list with `"none"` to cross it with the other factors; the table then shows an `assumes` column on every row. What the numbers say is in [algorithms.md](algorithms.md#assuming-the-pieces-meet-edge-to-edge): the footprints that took up to a million nodes take 14 to 80, fewer than their relief twins took assuming nothing, and of `rat1-flat`'s 101 assemblies and `rat2-flat`'s 2 only the answer has no T. `cor1` stays hard under it: 967 nodes with its roofs, and 44 539 and 48 assemblies without them, where the search that assumes nothing does not end.
+
+`proxies.static(instance, edge_to_edge=True)` gives the edge-graph proxies under the assumption: mean degree 0.8 to 2.4 on the footprints, against 23 to 84 without it.
+
 ## Figures and the notebook
 
 `maxplus_solvers.experiments.plotting` draws from records: `nodes_by_tolerance` (whole-search nodes against the contact tolerance, a line per fixture) and `proxy_against_cost` (one proxy against the nodes, a point per fixture). It needs the `analysis` extra and is the only module that imports matplotlib. `notebooks/first-look.ipynb` runs a manifest, prints its table and the proxies and draws both; a test runs it from top to bottom.
 
 ## What this leaves open
 
-- The corpus is 16 puzzles from three constructions. Every statement about what predicts difficulty rests on eight points a regime. Generated families of graded size are the next thing these tools should be pointed at.
-- The 16-piece footprints are where the search is hard, and they sit at the time limit. Remembering dead ends is the lead from phase 6; the manifests here are what to measure it with.
+- The corpus is 18 puzzles from four kinds of construction. Every statement about what predicts difficulty rests on nine points a regime, and the proxy correlations above were measured on eight, before `cor1` joined. Generated families of graded size are the next thing these tools should be pointed at.
+- Assuming nothing, the 16-piece footprints are where the search is hard, and they sit at the time limit; `cor1-flat` does not finish at all. Remembering dead ends is the lead from phase 6; the manifests here are what to measure it with.
 - Nothing here measures a person. In the hand these puzzles are simple with wall matching, which is the unique-mate structure above; the footprint regime removes exactly that.

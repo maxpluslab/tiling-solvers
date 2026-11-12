@@ -90,6 +90,10 @@ Coordinates are millimetres and radians, as in the browser player; there are no 
 
 They are separate because construction metadata could make a puzzle computationally trivial for reasons unrelated to its physical difficulty.
 
+### Assumptions
+
+Across the regimes runs a second axis: what a solver may take for granted about the assembly, without being told anything more about the pieces. The one so far is `edge-to-edge`, that pieces never meet in a T, which every tropical cut satisfies and which can be made with roofs or without. An assumption narrows what is looked for, so unlike a pruning rule it can change what a search finds. A solver declares the assumptions it can make, a result records the ones it made and names a candidate set that says so, and results under different assumptions are not compared. The contract is in [solver-contract.md](solver-contract.md#assumptions).
+
 ### Sanitization
 
 The source `puzzle.json` reveals the answer in three ways:

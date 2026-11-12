@@ -13,6 +13,12 @@ Every addition can be switched off through ``SolverConfig.options``, so that
 its effect can be measured. None of them changes what a whole search finds;
 ``tray_rotations`` changes how the same assemblies are counted.
 
+The solver can also be told to assume that the pieces meet edge to edge
+(``SolverConfig.assumptions``). That is not one of the additions: it changes
+what the search looks for, to the assemblies with no T between pieces, and the
+result names another candidate set. Two rules follow from it, ``equal_edges``
+and ``wall_edges``, and those are switches like the others.
+
 This module converts the instance, makes one call into ``_native`` and converts
 the answer back. The search does not return to Python until it is finished.
 """
@@ -25,6 +31,7 @@ from typing import Any
 from maxplus_solvers import _native
 from maxplus_solvers.metrics import SearchMetrics
 from maxplus_solvers.models import (
+    Assumption,
     Pose,
     PuzzleInstance,
     Regime,
@@ -44,6 +51,16 @@ CANDIDATE_SETS = {
     Regime.RELIEF: "corner-contact-relief/1",
 }
 
+# Under the assumption that pieces meet edge to edge: the placements above that
+# make no T with a placed piece.
+EDGE_TO_EDGE_SETS = {
+    Regime.FOOTPRINT: "corner-contact-edge-to-edge/1",
+    Regime.RELIEF: "corner-contact-relief-edge-to-edge/1",
+}
+
+# Rules that follow from the edge-to-edge assumption. They are options only with it.
+EDGE_TO_EDGE_RULES = ("equal_edges", "wall_edges")
+
 ORDERS = ("matched-edges", "generated", "random")
 TRAY_ROTATIONS = ("once", "all")
 
@@ -58,18 +75,26 @@ DEFAULTS: Mapping[str, Any] = {
     "closure_pruning": True,
     "lookahead": False,
     "order": "matched-edges",
+    "equal_edges": True,
+    "wall_edges": True,
 }
 
 
-def _options(given: Mapping[str, Any]) -> dict[str, Any]:
+def _options(given: Mapping[str, Any], edge_to_edge: bool) -> dict[str, Any]:
     unknown = sorted(set(given) - set(DEFAULTS))
     if unknown:
         raise ValueError(f"{NAME}: unknown options {', '.join(unknown)}")
+    stray = sorted(set(given) & set(EDGE_TO_EDGE_RULES))
+    if stray and not edge_to_edge:
+        raise ValueError(
+            f"{NAME}: {', '.join(stray)} only mean something under the "
+            f"{Assumption.EDGE_TO_EDGE.value} assumption"
+        )
     options = {**DEFAULTS, **given}
     limit = options["node_limit"]
     if limit is not None and (isinstance(limit, bool) or not isinstance(limit, int) or limit < 1):
         raise ValueError(f"{NAME}: node_limit must be a positive integer")
-    for switch in ("anchor", "cavity_pruning", "closure_pruning", "lookahead"):
+    for switch in ("anchor", "cavity_pruning", "closure_pruning", "lookahead", *EDGE_TO_EDGE_RULES):
         if not isinstance(options[switch], bool):
             raise ValueError(f"{NAME}: {switch} must be true or false")
     if options["order"] not in ORDERS:
@@ -87,7 +112,8 @@ def _options(given: Mapping[str, Any]) -> dict[str, Any]:
 def solve(instance: PuzzleInstance, config: SolverConfig) -> SolveResult:
     if instance.regime not in CANDIDATE_SETS:
         raise ValueError(f"{NAME} does not work in the {instance.regime} regime")
-    options = _options(config.options)
+    edge_to_edge = Assumption.EDGE_TO_EDGE in config.assumptions
+    options = _options(config.options, edge_to_edge)
     if config.seed < 0:
         raise ValueError(f"{NAME}: the seed must not be negative")
 
@@ -129,6 +155,9 @@ def solve(instance: PuzzleInstance, config: SolverConfig) -> SolveResult:
         lookahead=options["lookahead"],
         order=options["order"],
         seed=config.seed,
+        edge_to_edge=edge_to_edge,
+        equal_edges=options["equal_edges"],
+        wall_edges=options["wall_edges"],
     )
     cpu_time_s = time.process_time() - cpu_started
 
@@ -147,6 +176,8 @@ def solve(instance: PuzzleInstance, config: SolverConfig) -> SolveResult:
         rejected_outside=outcome.rejected_outside,
         rejected_overlap=outcome.rejected_overlap,
         rejected_roof=outcome.rejected_roof,
+        rejected_junction=outcome.rejected_junction if edge_to_edge else None,
+        rejected_wall=outcome.rejected_wall if edge_to_edge else None,
         pruned_cavity=outcome.pruned_cavity,
         pruned_closure=outcome.pruned_closure,
         pruned_anchor=outcome.pruned_anchor,
@@ -175,9 +206,10 @@ def solve(instance: PuzzleInstance, config: SolverConfig) -> SolveResult:
         # assemblies in exact arithmetic; this is f64 with tolerances.
         candidates_proven_complete=False,
         metrics=metrics.to_dict(),
-        candidate_set=CANDIDATE_SETS[instance.regime],
+        candidate_set=(EDGE_TO_EDGE_SETS if edge_to_edge else CANDIDATE_SETS)[instance.regime],
         config=config,
         solver_version=_native.version(),
+        assumptions=config.assumptions,
     )
 
 
@@ -186,4 +218,5 @@ SPEC = SolverSpec(
     run=solve,
     candidate_sets=CANDIDATE_SETS,
     description="Rust: depth-first search over corner contacts, with roofs and pruning",
+    assumptions=frozenset({Assumption.EDGE_TO_EDGE}),
 )

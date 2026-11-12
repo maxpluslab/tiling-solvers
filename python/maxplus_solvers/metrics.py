@@ -28,6 +28,10 @@ class SearchMetrics:
     rejected_outside: int = 0
     rejected_overlap: int = 0
     rejected_roof: int = 0
+    # Under the edge-to-edge assumption: placements refused for making a T with a placed
+    # piece, and for taking an edge that can only lie on the tray off it. Absent otherwise.
+    rejected_junction: int | None = None
+    rejected_wall: int | None = None
     # Nodes given up by a pruning rule, and candidates dropped before they became nodes.
     pruned_cavity: int = 0
     pruned_closure: int = 0

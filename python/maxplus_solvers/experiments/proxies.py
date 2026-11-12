@@ -85,8 +85,17 @@ def tray_turns(target: Sequence[Sequence[float]], tolerance_mm: float) -> int:
     return turns
 
 
-def static(instance: PuzzleInstance, tolerances: TolerancePolicy | None = None) -> StaticProxies:
-    """The static proxies of an instance, with the tolerances the solvers fit to."""
+def static(
+    instance: PuzzleInstance,
+    tolerances: TolerancePolicy | None = None,
+    *,
+    edge_to_edge: bool = False,
+) -> StaticProxies:
+    """The static proxies of an instance, with the tolerances the solvers fit to.
+
+    With ``edge_to_edge`` the edge graph is the one the search uses under that
+    assumption, where a piece edge lies only against an equally long one.
+    """
     policy = tolerances or TolerancePolicy.from_instance(instance)
     fit = policy.contact_noise_mm
     roofs = None
@@ -103,6 +112,7 @@ def static(instance: PuzzleInstance, tolerances: TolerancePolicy | None = None) 
         length_tol=fit,
         angle_tol=fit / instance.span_mm,
         slope_tol=fit / instance.span_mm,
+        edge_to_edge=edge_to_edge,
     )
     degrees: list[int] = []
     tray_degrees: list[int] = []

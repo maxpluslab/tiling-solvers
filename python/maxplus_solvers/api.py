@@ -48,7 +48,7 @@ def solve(instance: PuzzleInstance, config: SolverConfig, *, validate: bool = Fa
     The solver sees the instance reduced to ``config.mode``: asking for
     ``footprint`` on a relief puzzle hides the roofs from it. A mode with more
     information than the instance has, or one the solver does not declare, is
-    an error.
+    an error. So is an assumption the solver does not declare.
 
     With ``validate``, every returned solution is checked by the independent
     validator against the instance in that same regime, and comes back with its
@@ -61,8 +61,19 @@ def solve(instance: PuzzleInstance, config: SolverConfig, *, validate: bool = Fa
         raise ValueError(
             f"solver {spec.name!r} does not work in {config.mode} mode; it has {offered}"
         )
+    undeclared = [a.value for a in config.assumptions if a not in spec.assumptions]
+    if undeclared:
+        raise ValueError(
+            f"solver {spec.name!r} cannot assume {', '.join(undeclared)}; "
+            f"it can assume {', '.join(sorted(spec.assumptions)) or 'nothing'}"
+        )
     seen = instance.as_regime(config.mode)
     result = spec.run(seen, config)
+    if result.assumptions != config.assumptions:
+        raise RuntimeError(
+            f"solver {spec.name!r} was asked to assume {list(config.assumptions)} "
+            f"and reports {list(result.assumptions)}"
+        )
     if not validate:
         return result
 
