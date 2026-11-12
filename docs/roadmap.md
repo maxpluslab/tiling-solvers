@@ -11,7 +11,7 @@ Each phase is sized for one working session and ends with an exit criterion that
 | 4 | Contact candidates, Python prototype, solver contract | Done |
 | 5 | Rust contact DFS | Done |
 | 6 | CP-SAT backend | Done |
-| 7 | Benchmark and research platform | Next |
+| 7 | Benchmark and research platform | Done |
 
 The source corpus is 8 constructions in two variants each (relief and flat), 16 puzzles of 6 to 20 convex pieces with 3 to 8 vertices, in a 144 mm square tray.
 
@@ -171,6 +171,18 @@ Done, with these decisions:
 - `experiments/plotting.py` and a first notebook (optional extra `analysis`).
 
 **Exit:** one command reproduces a results table for the whole corpus across all registered solvers.
+
+Done, with these decisions:
+
+- The exit criterion is `tests/corpus/test_benchmark.py::test_one_command_reproduces_the_corpus_table`: `maxplus-bench run benchmarks/manifests/corpus.toml --no-times` writes the table committed as `benchmarks/results/corpus.md`, every registered solver on every corpus puzzle it can run. The table holds statuses and counts and no times, so it is the same on any machine.
+- Manifests are TOML, read with the standard library. A list is a factor and a block is the product of its factors. Records are JSON lines; they are not committed, the tables are.
+- "Pose and penetration tolerance" is one number in these solvers, the contact tolerance, which a manifest scales. The roof tolerance became a solver option, `roof_tolerance_mm`, so the grid has its second axis. By default the solvers fit to numerical noise, 0.000144 mm, six thousand times tighter than the player; the sweep runs from there to twice the player's tolerance.
+- "Contradiction depth" is the mean depth of a dead end, from a new metric `backtrack_depth`. "Geometry checks per node" is candidates generated per node.
+- Peak memory is not recorded. Nothing here measures it the same way on both platforms.
+- The source's rating and diversity are copied into the fixture index by the importer, so that comparing with them needs no checkout of the source.
+- `experiments/` calls `api.solve` like any user and nothing imports it. Only `plotting.py` imports matplotlib. Both are architecture tests. The notebook is run by a test.
+- Findings, in [experiments.md](experiments.md). There is no transition in tolerance: costs grow smoothly, solution counts do not change, and the roofs hold at 5 mm. The expected opposition between time to a first solution and time to exhaust is not there: both rise, because widening admits wrong placements and no new assemblies. Roofs move the cost more than ten thousandfold on the 16-piece puzzles; order, luck and looking ahead by ten to a hundred. The degree of the edge compatibility graph separates the regimes and ranks the relief puzzles; nothing static explains the footprints beyond their size.
+- For later phases: the corpus is too small to settle what predicts difficulty. Graded generated families, and nogood learning on the 16-piece footprints, are what the platform is for next.
 
 ## Backlog
 

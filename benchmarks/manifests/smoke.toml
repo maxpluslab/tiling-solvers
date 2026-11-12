@@ -1,0 +1,13 @@
+name = "smoke"
+description = "The smallest corpus puzzle and its flat twin, on every solver: a quick check that the runner works."
+fixtures = ["new5", "new5-flat"]
+
+[[runs]]
+solver = "rust.contact_dfs"
+
+[[runs]]
+solver = "cp_sat.placements"
+
+[[runs]]
+solver = "python.contact_dfs"
+mode = "footprint"

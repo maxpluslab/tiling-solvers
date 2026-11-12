@@ -98,6 +98,7 @@ In the relief regime "congruent" and "onto itself" include the roof: two pieces 
 | --- | --- |
 | `nodes` | Search nodes expanded, the root included. |
 | `backtracks` | Nodes abandoned as dead ends: no candidate for the corner branched on, all pieces placed with something left uncovered, or a pruning rule. |
+| `backtrack_depth` | The number of pieces down at each backtrack, added up. `backtrack_depth / backtracks` is the mean contradiction depth: how many pieces are placed, on average, when the search finds it is wrong. |
 | `placements` | Pieces put down, counting every attempt. |
 | `max_depth` | The largest number of pieces down at once. |
 | `candidates_generated` | Placements computed from contacts, before any check. |
@@ -159,6 +160,7 @@ Every rule the search adds to the prototype's can be switched off, so that its e
 | Option | Default | Meaning |
 | --- | --- | --- |
 | `node_limit` | none | Stop after that many nodes. |
+| `roof_tolerance_mm` | none | The step in height allowed between two roofs along a shared edge. By default it follows the contact noise: that times the steepest roof gradient, and at least the contact noise. Setting it moves the roof tolerance on its own, which changes the candidate set: a result records the option. Ignored in the footprint regime. |
 | `tray_rotations` | `once` | `once`: assemblies that are rotations of one another with the tray are one solution. `all`: each is returned, as the prototype does. |
 | `anchor` | `true` | Hold one piece to a sector of the tray, so that rotated copies are not searched for at all. Only with `tray_rotations=once`; without it they are found and discarded. |
 | `cavity_pruning` | `true` | Abandon a state with a cavity the remaining pieces cannot fill, by area or by width. |
@@ -168,11 +170,12 @@ Every rule the search adds to the prototype's can be switched off, so that its e
 
 ### Options of `cp_sat.placements`
 
-The first six shape the search that lists the placements and mean what they mean for `rust.contact_dfs`; a rule that is off makes the list longer and never changes what is chosen from it. `coverage` and `targeted_probes` shape the model.
+The first seven shape the search that lists the placements and mean what they mean for `rust.contact_dfs`; a rule that is off makes the list longer and never changes what is chosen from it. `coverage` and `targeted_probes` shape the model.
 
 | Option | Default | Meaning |
 | --- | --- | --- |
 | `node_limit` | none | Stop the listing search after that many nodes. The list is then partial. |
+| `roof_tolerance_mm` | none | As for `rust.contact_dfs`. |
 | `max_placements` | none | Stop the listing search once that many placements are listed. The list is then partial. |
 | `tray_rotations` | `once` | `once`: a choice and its tray rotations are one solution. `all`: each is returned. |
 | `anchor` | `true` | List only placements the anchored search reaches, so that rotated copies are mostly not in the list. Without it they are chosen and discarded. |

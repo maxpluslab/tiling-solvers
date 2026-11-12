@@ -149,7 +149,7 @@ Recorded for every run:
 
 | Category | Metrics |
 | --- | --- |
-| Performance | Wall time, CPU time, peak memory |
+| Performance | Wall time, CPU time. Peak memory is not recorded yet: nothing here measures it the same way on both platforms. |
 | Search effort | Nodes, backtracks, depth, propagations |
 | Geometry | Candidate placements, compatibility checks, rejected collisions |
 | Outcomes | First solution, solutions found, whether the search was exhaustive |

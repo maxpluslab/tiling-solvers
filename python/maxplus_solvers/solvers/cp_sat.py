@@ -55,6 +55,7 @@ TRAY_ROTATIONS = ("once", "all")
 # into a clique and CP-SAT is slower for it. docs/algorithms.md has the measurements.
 DEFAULTS: Mapping[str, Any] = {
     "node_limit": None,
+    "roof_tolerance_mm": None,
     "max_placements": None,
     "tray_rotations": "once",
     "anchor": True,
@@ -79,6 +80,11 @@ def _options(given: Mapping[str, Any]) -> dict[str, Any]:
     for switch in ("anchor", "cavity_pruning", "closure_pruning", "coverage", "targeted_probes"):
         if not isinstance(options[switch], bool):
             raise ValueError(f"{NAME}: {switch} must be true or false")
+    roof = options["roof_tolerance_mm"]
+    if roof is not None and (
+        isinstance(roof, bool) or not isinstance(roof, int | float) or not roof > 0
+    ):
+        raise ValueError(f"{NAME}: roof_tolerance_mm must be a positive number")
     if options["tray_rotations"] not in TRAY_ROTATIONS:
         raise ValueError(f"{NAME}: tray_rotations must be one of {', '.join(TRAY_ROTATIONS)}")
     return options
@@ -126,6 +132,8 @@ def solve(instance: PuzzleInstance, config: SolverConfig) -> SolveResult:
             roofs.append((piece.roof.z0, piece.roof.gx, piece.roof.gy))
         steepest = max(math.hypot(gx, gy) for _, gx, gy in roofs)
         height_mm = fit_mm * max(1.0, steepest)
+        if options["roof_tolerance_mm"] is not None:
+            height_mm = float(options["roof_tolerance_mm"])
 
     started = time.perf_counter()
     cpu_started = time.process_time()
@@ -229,6 +237,7 @@ def solve(instance: PuzzleInstance, config: SolverConfig) -> SolveResult:
         # The search that listed the placements.
         nodes=listed.nodes,
         backtracks=listed.backtracks,
+        backtrack_depth=listed.backtrack_depth,
         placements=listed.placements,
         max_depth=listed.max_depth,
         candidates_generated=listed.candidates_generated,

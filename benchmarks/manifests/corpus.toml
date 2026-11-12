@@ -1,0 +1,29 @@
+name = "corpus"
+description = """
+Every registered solver on the whole corpus, each search run to its end where it can be.
+`maxplus-bench run benchmarks/manifests/corpus.toml --no-times` reproduces
+benchmarks/results/corpus.md; a test holds the two together.
+"""
+fixtures = ["corpus"]
+
+# The Rust contact search, each puzzle in its own regime.
+[[runs]]
+solver = "rust.contact_dfs"
+
+# CP-SAT choosing among the placements that search reaches.
+[[runs]]
+solver = "cp_sat.placements"
+
+# The Python prototype knows footprints only, and counts every orientation of the tray.
+# It is given a node limit, not a time limit, so that where it stops does not depend on
+# the machine: the three largest puzzles are beyond it.
+[[runs]]
+solver = "python.contact_dfs"
+mode = "footprint"
+fixtures = [
+    "new1-flat", "new2-flat", "new3-flat", "new4-flat",
+    "new5-flat", "rat1-flat", "rat2-flat", "rev2-flat",
+]
+
+[runs.options]
+node_limit = 50000

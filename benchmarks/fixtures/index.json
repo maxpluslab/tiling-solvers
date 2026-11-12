@@ -5,118 +5,221 @@
     "commit": "9f9ed10715042c9472a91dd849fde979f048cba0"
   },
   "sanitizerVersion": 1,
+  "sourceDifficulty": {
+    "method": "leinster-cobbold-intrinsic-volumes",
+    "u": 10.0,
+    "q": 2.0,
+    "direction": "lower-diversity-is-harder",
+    "thresholds": [0.25, 0.3, 0.45, 0.62]
+  },
   "fixtures": [
     {
       "id": "new1",
       "kind": "corpus",
       "regime": "relief",
       "pieceCount": 16,
-      "instanceHash": "316f47096c88b5d96a5ebd517f536a39fea14f5b8991126f11abf05a63af91f7"
+      "instanceHash": "316f47096c88b5d96a5ebd517f536a39fea14f5b8991126f11abf05a63af91f7",
+      "construction": "new1",
+      "sourceDifficulty": {
+        "diversity": 5.446444,
+        "x": 0.29643,
+        "rating": 4
+      }
     },
     {
       "id": "new1-flat",
       "kind": "corpus",
       "regime": "footprint",
       "pieceCount": 16,
-      "instanceHash": "5cea41e18add833a84afe209351b407bea5c41f3b998c9c76f41b567b6cb66a1"
+      "instanceHash": "5cea41e18add833a84afe209351b407bea5c41f3b998c9c76f41b567b6cb66a1",
+      "construction": "new1",
+      "sourceDifficulty": {
+        "diversity": 6.426513,
+        "x": 0.361768,
+        "rating": 3
+      }
     },
     {
       "id": "new2",
       "kind": "corpus",
       "regime": "relief",
       "pieceCount": 16,
-      "instanceHash": "182cebb40e07f854b46e39d819b3b45a54838ff0345e998915a6f3ade2d1ef70"
+      "instanceHash": "182cebb40e07f854b46e39d819b3b45a54838ff0345e998915a6f3ade2d1ef70",
+      "construction": "new2",
+      "sourceDifficulty": {
+        "diversity": 4.496934,
+        "x": 0.233129,
+        "rating": 5
+      }
     },
     {
       "id": "new2-flat",
       "kind": "corpus",
       "regime": "footprint",
       "pieceCount": 16,
-      "instanceHash": "59a938c00227006b4c39007dbf87b40dde7fb11b50eb546cd065b9cc4df03785"
+      "instanceHash": "59a938c00227006b4c39007dbf87b40dde7fb11b50eb546cd065b9cc4df03785",
+      "construction": "new2",
+      "sourceDifficulty": {
+        "diversity": 4.78389,
+        "x": 0.252259,
+        "rating": 4
+      }
     },
     {
       "id": "new3",
       "kind": "corpus",
       "regime": "relief",
       "pieceCount": 9,
-      "instanceHash": "f323c0f36ee5c67a4ed9909df8647c76b7a8b5daaf1185d58b0cb599d73d4077"
+      "instanceHash": "f323c0f36ee5c67a4ed9909df8647c76b7a8b5daaf1185d58b0cb599d73d4077",
+      "construction": "new3",
+      "sourceDifficulty": {
+        "diversity": 5.681002,
+        "x": 0.585125,
+        "rating": 2
+      }
     },
     {
       "id": "new3-flat",
       "kind": "corpus",
       "regime": "footprint",
       "pieceCount": 9,
-      "instanceHash": "3bef95861401962974a94cc7bd3af623140579de81ce8c4a1752d3e88cb8a19b"
+      "instanceHash": "3bef95861401962974a94cc7bd3af623140579de81ce8c4a1752d3e88cb8a19b",
+      "construction": "new3",
+      "sourceDifficulty": {
+        "diversity": 6.633686,
+        "x": 0.704211,
+        "rating": 1
+      }
     },
     {
       "id": "new4",
       "kind": "corpus",
       "regime": "relief",
       "pieceCount": 9,
-      "instanceHash": "72113b0654c26918d6d5245a37490c80a627a30303190223603de35003c32498"
+      "instanceHash": "72113b0654c26918d6d5245a37490c80a627a30303190223603de35003c32498",
+      "construction": "new4",
+      "sourceDifficulty": {
+        "diversity": 3.500216,
+        "x": 0.312527,
+        "rating": 3
+      }
     },
     {
       "id": "new4-flat",
       "kind": "corpus",
       "regime": "footprint",
       "pieceCount": 9,
-      "instanceHash": "e9b5924cff70660da1d21edfbbfc0afc4379f2c2b70b27c446b9589e8aef3e0b"
+      "instanceHash": "e9b5924cff70660da1d21edfbbfc0afc4379f2c2b70b27c446b9589e8aef3e0b",
+      "construction": "new4",
+      "sourceDifficulty": {
+        "diversity": 3.939849,
+        "x": 0.367481,
+        "rating": 3
+      }
     },
     {
       "id": "new5",
       "kind": "corpus",
       "regime": "relief",
       "pieceCount": 6,
-      "instanceHash": "dadb5297b3ba835bc2da28201a5430cc796afbe59dac4474a0f90f2c0fe597ac"
+      "instanceHash": "dadb5297b3ba835bc2da28201a5430cc796afbe59dac4474a0f90f2c0fe597ac",
+      "construction": "new5",
+      "sourceDifficulty": {
+        "diversity": 4.466807,
+        "x": 0.693361,
+        "rating": 1
+      }
     },
     {
       "id": "new5-flat",
       "kind": "corpus",
       "regime": "footprint",
       "pieceCount": 6,
-      "instanceHash": "2b719a8e0e9e1b04e870a73388b596e5c7b21ed2a983a7363d5deddd31fdf692"
+      "instanceHash": "2b719a8e0e9e1b04e870a73388b596e5c7b21ed2a983a7363d5deddd31fdf692",
+      "construction": "new5",
+      "sourceDifficulty": {
+        "diversity": 4.186563,
+        "x": 0.637313,
+        "rating": 1
+      }
     },
     {
       "id": "rat1",
       "kind": "corpus",
       "regime": "relief",
       "pieceCount": 11,
-      "instanceHash": "3b8ac23d1a3395c8b30313ea53253973ec1e515a9dfae59b1eb7702f5546b41d"
+      "instanceHash": "3b8ac23d1a3395c8b30313ea53253973ec1e515a9dfae59b1eb7702f5546b41d",
+      "construction": "rat1",
+      "sourceDifficulty": {
+        "diversity": 4.891978,
+        "x": 0.389198,
+        "rating": 3
+      }
     },
     {
       "id": "rat1-flat",
       "kind": "corpus",
       "regime": "footprint",
       "pieceCount": 11,
-      "instanceHash": "ce4e5d5431c8a8daa8bd2ff3dce519e0ba669b9507868ace5376295a495c7577"
+      "instanceHash": "ce4e5d5431c8a8daa8bd2ff3dce519e0ba669b9507868ace5376295a495c7577",
+      "construction": "rat1",
+      "sourceDifficulty": {
+        "diversity": 4.538006,
+        "x": 0.353801,
+        "rating": 3
+      }
     },
     {
       "id": "rat2",
       "kind": "corpus",
       "regime": "relief",
       "pieceCount": 20,
-      "instanceHash": "ea656bb60309a5582eecf701870916707c8ee154182fb232845c4242e08e0ddb"
+      "instanceHash": "ea656bb60309a5582eecf701870916707c8ee154182fb232845c4242e08e0ddb",
+      "construction": "rat2",
+      "sourceDifficulty": {
+        "diversity": 5.709562,
+        "x": 0.247872,
+        "rating": 5
+      }
     },
     {
       "id": "rat2-flat",
       "kind": "corpus",
       "regime": "footprint",
       "pieceCount": 20,
-      "instanceHash": "dbac49368deabed47b3a50c6ed255c12dec8fe5f6442c36d25794a49114033d0"
+      "instanceHash": "dbac49368deabed47b3a50c6ed255c12dec8fe5f6442c36d25794a49114033d0",
+      "construction": "rat2",
+      "sourceDifficulty": {
+        "diversity": 6.063062,
+        "x": 0.266477,
+        "rating": 4
+      }
     },
     {
       "id": "rev2",
       "kind": "corpus",
       "regime": "relief",
       "pieceCount": 9,
-      "instanceHash": "bcd0168ea567cf80cdda0ffeef4fbae9a35e7db78336a6cdebe69edaadb486c5"
+      "instanceHash": "bcd0168ea567cf80cdda0ffeef4fbae9a35e7db78336a6cdebe69edaadb486c5",
+      "construction": "rev2",
+      "sourceDifficulty": {
+        "diversity": 5.09878,
+        "x": 0.512348,
+        "rating": 2
+      }
     },
     {
       "id": "rev2-flat",
       "kind": "corpus",
       "regime": "footprint",
       "pieceCount": 9,
-      "instanceHash": "2acb913456ef45663e8622a80085cd69b1d99b12bf3d4f5cd530881350576608"
+      "instanceHash": "2acb913456ef45663e8622a80085cd69b1d99b12bf3d4f5cd530881350576608",
+      "construction": "rev2",
+      "sourceDifficulty": {
+        "diversity": 4.482502,
+        "x": 0.435313,
+        "rating": 3
+      }
     },
     {
       "id": "syn-four-squares",

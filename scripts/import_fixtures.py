@@ -54,7 +54,7 @@ def build(source: Path, seed: int, commit: str) -> dict[Path, Any]:
     documents: dict[Path, Any] = {}
     entries: list[dict[str, Any]] = []
 
-    def add(kind: str, instance: PuzzleInstance, key: AnswerKey) -> None:
+    def add(kind: str, instance: PuzzleInstance, key: AnswerKey, **more: Any) -> None:
         documents[FIXTURES / f"{instance.id}.json"] = instance.to_dict()
         documents[KEYS / f"{instance.id}.json"] = key.to_dict()
         entries.append(
@@ -64,13 +64,22 @@ def build(source: Path, seed: int, commit: str) -> dict[Path, Any]:
                 "regime": instance.regime.value,
                 "pieceCount": len(instance.pieces),
                 "instanceHash": instance.instance_hash(),
+                **more,
             }
         )
 
     source_index = json.loads((source / "puzzles" / "index.json").read_text(encoding="utf-8"))
     for entry in sorted(source_index["puzzles"], key=lambda e: e["id"]):
         document = read_source(source / "puzzles" / entry["path"])
-        add("corpus", *import_puzzle(document, seed=seed, commit=commit))
+        # The construction a puzzle and its flat twin share, and the source's own difficulty
+        # rating. Both describe the puzzle, not its solution; they go in the index for the
+        # experiments and never into an instance.
+        add(
+            "corpus",
+            *import_puzzle(document, seed=seed, commit=commit),
+            construction=entry["construction"],
+            sourceDifficulty=dict(entry["difficulty"]),
+        )
     for name in sorted(BUILDERS):
         add("synthetic", *sanitize(BUILDERS[name](), seed))
 
@@ -78,6 +87,8 @@ def build(source: Path, seed: int, commit: str) -> dict[Path, Any]:
         "formatVersion": 1,
         "source": {"repository": SOURCE_REPOSITORY, "commit": commit},
         "sanitizerVersion": SANITIZER_VERSION,
+        # How the source rates difficulty: its method and parameters, as published.
+        "sourceDifficulty": dict(source_index["difficulty"]),
         "fixtures": entries,
     }
     return documents

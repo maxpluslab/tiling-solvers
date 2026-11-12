@@ -241,6 +241,58 @@ def test_importing_the_package_does_not_need_the_optional_extras() -> None:
     assert done.stdout.strip() == "[]"
 
 
+def test_running_an_experiment_needs_no_plotting_stack() -> None:
+    """The runner, the tables and the command load without matplotlib.
+
+    Only ``experiments/plotting.py`` may import it, so that results can be
+    produced on a machine that has nothing but the solvers.
+    """
+    code = (
+        "import sys, maxplus_solvers.experiments.cli, maxplus_solvers.experiments.proxies; "
+        "print(sorted(m for m in ('matplotlib', 'numpy', 'polars') if m in sys.modules))"
+    )
+    done = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True)
+    assert done.stdout.strip() == "[]"
+    importers = [
+        path.relative_to(PACKAGE).as_posix()
+        for path in package_sources()
+        if any(module.split(".")[0] == "matplotlib" for module in imported_modules(path))
+    ]
+    assert importers == ["experiments/plotting.py"]
+
+
+def test_experiments_are_callers_and_nothing_depends_on_them() -> None:
+    """Experiments reach solvers through ``api.solve``, like anyone else.
+
+    Nothing outside ``experiments/`` imports it, so the solvers cannot come to
+    depend on how they are measured; and the runner imports no solver module
+    and no validator, so it cannot measure anything but what a caller sees.
+    """
+    experiments = PACKAGE / "experiments"
+    sources = sorted(experiments.glob("*.py"))
+    assert {p.name for p in sources} >= {"benchmark.py", "manifest.py", "report.py", "proxies.py"}
+    for path in package_sources():
+        if experiments in path.parents:
+            continue
+        users = [m for m in imported_modules(path) if m.startswith("maxplus_solvers.experiments")]
+        assert not users, f"{path.name} imports the experiments"
+    for path in sources:
+        for module in imported_modules(path):
+            assert not module.startswith("maxplus_solvers.validation"), path.name
+            assert not module.startswith("maxplus_solvers.solvers."), path.name
+    # The runner itself does no geometry: only the proxies read the edge graph.
+    natives = [
+        path.name
+        for path in sources
+        if "maxplus_solvers._native" in imported_modules(path)
+        or (
+            "maxplus_solvers" in imported_modules(path)
+            and "_native" in path.read_text(encoding="utf-8")
+        )
+    ]
+    assert natives == ["proxies.py"]
+
+
 def test_the_stub_declares_exactly_what_the_extension_exports() -> None:
     stub = ast.parse((PACKAGE / "_native.pyi").read_text(encoding="utf-8"))
     declared = {node.name for node in stub.body if isinstance(node, ast.FunctionDef | ast.ClassDef)}

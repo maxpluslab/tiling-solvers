@@ -127,11 +127,13 @@ def solve(instance: PuzzleInstance, config: SolverConfig) -> SolveResult:
                         break
                 else:
                     metrics.backtracks += 1
+                    metrics.backtrack_depth += len(frames)
                 candidates = []
             else:
                 candidates = _branch(state)
                 if not candidates:
                     metrics.backtracks += 1
+                    metrics.backtrack_depth += len(frames)
             frames.append(_Frame(candidates))
 
         frame = frames[-1]

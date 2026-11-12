@@ -1,0 +1,24 @@
+name = "tolerance"
+description = """
+How the whole search changes as its tolerances widen. The contact tolerance runs from the
+numerical noise the solvers fit to by default (1e-6 of the span, 0.000144 mm on the corpus)
+up to twice the overlap the browser player forgives (0.006 of the span, 0.864 mm), on a
+geometric scale. For the relief puzzles a second block varies the roof tolerance on its own
+axis, up to and past the 1.75 mm step the player forgives.
+Searches are stopped after 30 s; a stopped search is a result too.
+"""
+fixtures = ["corpus"]
+
+[[runs]]
+solver = "rust.contact_dfs"
+time_limit_s = 30.0
+contact_scale = [1.0, 10.0, 100.0, 1000.0, 3000.0, 6000.0, 12000.0]
+
+[[runs]]
+solver = "rust.contact_dfs"
+time_limit_s = 30.0
+fixtures = ["new1", "new2", "new3", "new4", "new5", "rat1", "rat2", "rev2"]
+contact_scale = [1.0, 100.0, 1000.0, 6000.0]
+
+[runs.options]
+roof_tolerance_mm = [0.01, 0.1, 0.5, 1.75, 5.0]

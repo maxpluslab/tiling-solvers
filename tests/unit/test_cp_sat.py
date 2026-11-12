@@ -155,6 +155,37 @@ def test_a_roof_out_of_step_leaves_no_assembly() -> None:
     assert not result.candidates_proven_complete
 
 
+@pytest.mark.parametrize(("tolerance", "found"), [(0.2, 0), (0.3, 1)])
+def test_the_roof_tolerance_can_be_set_on_its_own(tolerance: float, found: int) -> None:
+    """Lift the middle roof by 0.25 mm and say how large a step may be.
+
+    The roofs then run 20 to 26, 26.25 to 35.25 and 35 to 50 mm, so the order they
+    were cut in has a step of 0.25 mm at both seams: refused at 0.2 mm, allowed at
+    0.3 mm. No other pair of edges comes within 0.3 mm: unturned, a seam joins a
+    right height (26, 35.25, 50) to a left one (20, 26.25, 35), and a turned strip
+    swaps its two, so the only near pairs are 26 with 26.25 and 35.25 with 35.
+    That is the cut order and its half turn with the tray: one assembly.
+    """
+    doc = documents.three_strips_relief()
+    doc["pieces"][1]["roof"]["z0"] += 0.25
+    instance = PuzzleInstance.from_dict(doc)
+    result = solve(instance, everything(Regime.RELIEF, roof_tolerance_mm=tolerance), validate=True)
+    assert result.exhaustive
+    assert len(result.solutions) == found
+    for solution in result.solutions:
+        assert solution.residuals is not None
+        assert solution.residuals["roof_mismatch_mm"] <= tolerance + 1e-9
+    if found:
+        worst = min(s.residuals["roof_mismatch_mm"] for s in result.solutions if s.residuals)
+        assert worst == pytest.approx(0.25, abs=1e-9)
+
+
+def test_the_roof_tolerance_means_nothing_without_roofs() -> None:
+    plain = solve(footprint(), everything())
+    set_anyway = solve(footprint(), everything(roof_tolerance_mm=5.0))
+    assert len(set_anyway.solutions) == len(plain.solutions) == 3
+
+
 @pytest.mark.parametrize("coverage", [True, False])
 @pytest.mark.parametrize("pruning", [True, False])
 def test_strips_too_narrow_for_the_tray_are_never_an_assembly(
@@ -311,6 +342,9 @@ def test_the_tropical_regime_is_not_offered() -> None:
         ({"coverage": "yes"}, "coverage must be true or false"),
         ({"anchor": 1}, "anchor must be true or false"),
         ({"tray_rotations": "twice"}, "tray_rotations must be one of"),
+        ({"roof_tolerance_mm": 0}, "roof_tolerance_mm must be a positive number"),
+        ({"roof_tolerance_mm": True}, "roof_tolerance_mm must be a positive number"),
+        ({"roof_tolerance_mm": "wide"}, "roof_tolerance_mm must be a positive number"),
     ],
 )
 def test_options_it_does_not_understand_are_refused(options: dict[str, Any], message: str) -> None:
