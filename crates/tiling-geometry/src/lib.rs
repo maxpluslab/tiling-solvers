@@ -40,7 +40,7 @@ pub use clip::{intersection, intersection_area, outside_area};
 pub use conflict::{Conflict, Conflicts, Placed, conflict, conflicts};
 pub use contact::{ContactTolerance, Corner, EdgeRef, free_corners, pose_at_corner};
 pub use edges::{Edge, EdgeSignature, edge_signatures, edges};
-pub use graph::{EdgeGraph, Shape, rotation_order};
+pub use graph::{EdgeGraph, Meeting, Shape, rotation_order};
 pub use polygon::{
     ConvexPolygon, NotConvex, centroid, contains_point, distance_to_segment, is_convex_ccw,
     outside_depth, point_outside_depth, signed_area, transform,

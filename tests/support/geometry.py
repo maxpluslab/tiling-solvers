@@ -101,3 +101,48 @@ def same_polygon(a: Sequence[Sequence[float]], b: Sequence[Sequence[float]], tol
     return any(
         all(math.dist(a[i], b[(i + shift) % n]) <= tol for i in range(n)) for shift in range(n)
     )
+
+
+def segment_distance(p: Sequence[float], a: Sequence[float], b: Sequence[float]) -> float:
+    """Distance from ``p`` to the segment from ``a`` to ``b``: to the nearest point of it."""
+    dx, dy = b[0] - a[0], b[1] - a[1]
+    t = ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / (dx * dx + dy * dy)
+    t = min(1.0, max(0.0, t))
+    return math.dist(p, (a[0] + t * dx, a[1] + t * dy))
+
+
+def is_edge_to_edge(
+    polygons: Sequence[Sequence[Sequence[float]]],
+    target: Sequence[Sequence[float]],
+    tol: float,
+) -> bool:
+    """Whether placed pieces that cover ``target`` meet edge to edge, by twin edges.
+
+    Every edge of every piece either lies on the target's boundary (both ends
+    within ``tol`` of one side of it) or is, run backwards, an edge of exactly
+    one other piece (both ends within ``tol``). For pieces that cover the
+    target this is the same as no vertex lying strictly inside another piece's
+    edge, the form the search uses: if an interior edge has one twin, the twin's
+    piece lines the whole edge, and a vertex of a third piece inside it would
+    overlap one of them.
+    """
+    m = len(target)
+    sides = [(target[j], target[(j + 1) % m]) for j in range(m)]
+    for p, piece in enumerate(polygons):
+        n = len(piece)
+        for i in range(n):
+            a, b = piece[i], piece[(i + 1) % n]
+            if any(
+                segment_distance(a, s, e) <= tol and segment_distance(b, s, e) <= tol
+                for s, e in sides
+            ):
+                continue
+            twins = sum(
+                math.dist(a, other[(j + 1) % len(other)]) <= tol and math.dist(b, other[j]) <= tol
+                for q, other in enumerate(polygons)
+                if q != p
+                for j in range(len(other))
+            )
+            if twins != 1:
+                return False
+    return True

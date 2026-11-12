@@ -429,7 +429,11 @@ impl Assembly {
 #[pymethods]
 impl Assembly {
     #[new]
-    #[pyo3(signature = (target, pieces, roofs=None, *, length_tol, angle_tol, slope_tol, height_tol=None))]
+    #[pyo3(signature = (
+        target, pieces, roofs=None, *, length_tol, angle_tol, slope_tol, height_tol=None,
+        edge_to_edge=false, equal_edges=true, wall_edges=true,
+    ))]
+    #[allow(clippy::too_many_arguments)]
     fn new(
         target: Vec<[f64; 2]>,
         pieces: Vec<Vec<[f64; 2]>>,
@@ -438,10 +442,18 @@ impl Assembly {
         angle_tol: f64,
         slope_tol: f64,
         height_tol: Option<f64>,
+        edge_to_edge: bool,
+        equal_edges: bool,
+        wall_edges: bool,
     ) -> PyResult<Assembly> {
         let (shapes, tolerance) =
             puzzle_parts(pieces, roofs, length_tol, angle_tol, slope_tol, height_tol)?;
-        tiling_geometry::Assembly::new(target, shapes, tolerance)
+        let meeting = tiling_geometry::Meeting {
+            edge_to_edge,
+            equal_edges,
+            wall_edges,
+        };
+        tiling_geometry::Assembly::meeting(target, shapes, tolerance, meeting)
             .map(|inner| Assembly { inner })
             .map_err(refused)
     }
@@ -449,6 +461,15 @@ impl Assembly {
     #[getter]
     fn piece_count(&self) -> usize {
         self.inner.piece_count()
+    }
+
+    /// Whether some edge of another piece could lie against the whole of this
+    /// one: slopes cancelling, equal lengths, equal heights at both ends.
+    fn has_partner(&self, piece: usize, edge: usize) -> PyResult<bool> {
+        if piece >= self.inner.piece_count() || edge >= self.inner.shape(piece).polygon.len() {
+            return Err(PyValueError::new_err("no such piece edge"));
+        }
+        Ok(self.inner.graph().has_partner(piece, edge))
     }
 
     /// Number of piece edges, the nodes of the compatibility graph besides the tray's.
@@ -723,6 +744,8 @@ struct ContactDfsOutcome {
     rejected_outside: u64,
     rejected_overlap: u64,
     rejected_roof: u64,
+    rejected_junction: u64,
+    rejected_wall: u64,
     pruned_cavity: u64,
     pruned_closure: u64,
     pruned_anchor: u64,
@@ -743,6 +766,7 @@ struct ContactDfsOutcome {
     max_solutions=Some(1), time_limit_s=None, node_limit=None,
     all_tray_rotations=false, anchor=true, cavity_pruning=true, closure_pruning=true, lookahead=false,
     order="matched-edges", seed=0,
+    edge_to_edge=false, equal_edges=true, wall_edges=true,
 ))]
 #[allow(clippy::too_many_arguments)]
 fn contact_dfs(
@@ -764,6 +788,9 @@ fn contact_dfs(
     lookahead: bool,
     order: &str,
     seed: u64,
+    edge_to_edge: bool,
+    equal_edges: bool,
+    wall_edges: bool,
 ) -> PyResult<ContactDfsOutcome> {
     use tiling_search::contact_dfs::{Options, Order, TrayRotations, solve};
 
@@ -796,6 +823,11 @@ fn contact_dfs(
         lookahead,
         order,
         seed,
+        meeting: tiling_geometry::Meeting {
+            edge_to_edge,
+            equal_edges,
+            wall_edges,
+        },
         ..Options::default()
     };
     let outcome = py
@@ -818,6 +850,8 @@ fn contact_dfs(
         rejected_outside: stats.candidates.rejected_outside,
         rejected_overlap: stats.candidates.rejected_overlap,
         rejected_roof: stats.candidates.rejected_roof,
+        rejected_junction: stats.candidates.rejected_junction,
+        rejected_wall: stats.candidates.rejected_wall,
         pruned_cavity: stats.pruned_cavity,
         pruned_closure: stats.pruned_closure,
         pruned_anchor: stats.pruned_anchor,

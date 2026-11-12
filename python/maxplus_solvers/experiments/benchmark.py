@@ -21,9 +21,22 @@ from pathlib import Path
 from typing import Any
 
 from maxplus_solvers.api import solve
-from maxplus_solvers.experiments.manifest import OWN, Manifest, Run, expand, fixture_ids
+from maxplus_solvers.experiments.manifest import (
+    NOTHING,
+    OWN,
+    Manifest,
+    Run,
+    expand,
+    fixture_ids,
+)
 from maxplus_solvers.io.instance import load_instance
-from maxplus_solvers.models import PuzzleInstance, Regime, SolverConfig, TolerancePolicy
+from maxplus_solvers.models import (
+    Assumption,
+    PuzzleInstance,
+    Regime,
+    SolverConfig,
+    TolerancePolicy,
+)
 
 FORMAT_VERSION = 1
 # Regimes from least to most information. A puzzle can be solved in its own or a lower one.
@@ -83,6 +96,7 @@ def run_one(
         seed=run.seed,
         tolerances=tolerances,
         options=dict(run.options),
+        assumptions=() if run.assume == NOTHING else (Assumption(run.assume),),
     )
     record: dict[str, Any] = {
         "formatVersion": FORMAT_VERSION,

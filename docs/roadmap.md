@@ -12,8 +12,9 @@ Each phase is sized for one working session and ends with an exit criterion that
 | 5 | Rust contact DFS | Done |
 | 6 | CP-SAT backend | Done |
 | 7 | Benchmark and research platform | Done |
+| 8 | The edge-to-edge assumption | Done |
 
-The source corpus is 8 constructions in two variants each (relief and flat), 16 puzzles of 6 to 20 convex pieces with 3 to 8 vertices, in a 144 mm square tray.
+The source corpus is 9 constructions in two variants each (relief and flat), 18 puzzles of 6 to 27 convex pieces with 3 to 8 vertices, in a 144 mm square tray.
 
 ## Phase 0: repository skeleton
 
@@ -184,6 +185,25 @@ Done, with these decisions:
 - Findings, in [experiments.md](experiments.md). There is no transition in tolerance: costs grow smoothly, solution counts do not change, and the roofs hold at 5 mm. The expected opposition between time to a first solution and time to exhaust is not there: both rise, because widening admits wrong placements and no new assemblies. Roofs move the cost more than ten thousandfold on the 16-piece puzzles; order, luck and looking ahead by ten to a hundred. The degree of the edge compatibility graph separates the regimes and ranks the relief puzzles; nothing static explains the footprints beyond their size.
 - For later phases: the corpus is too small to settle what predicts difficulty. Graded generated families, and nogood learning on the 16-piece footprints, are what the platform is for next.
 
+## Phase 8: the edge-to-edge assumption
+
+Tropical puzzles are cut from a polyhedral complex, so their pieces meet edge to edge: the balancing condition leaves no T inside the tray. The search did not use this; a piece edge could lie against any part of a longer one.
+
+- `Assumption.EDGE_TO_EDGE` in the models: a declared assumption, separate from the regime, recorded in `SolverConfig` and `SolveResult`, with its own candidate sets. Solvers declare the assumptions they can make; `rust.contact_dfs` declares this one, the prototype and `cp_sat.placements` do not.
+- In `tiling-geometry`: `Meeting`, the junction check in `Assembly::propose`, and two rules that follow, `equal_edges` (equal lengths and end heights in the edge graph) and `wall_edges` (an edge with no partner stays on the tray), each an option.
+- `maxplus-solve --assume`, `assume` in manifests, an `assumes` column in tables, `proxies.static(..., edge_to_edge=True)`.
+- `benchmarks/manifests/edge_to_edge.toml` and the committed `benchmarks/results/edge_to_edge.md`.
+
+**Exit:** on every corpus fixture, the search under the assumption finds exactly the assemblies of the plain search that an independent check calls edge to edge, with the two rules on and off, and the answer key among them. On `cor1-flat`, whose plain search does not end, everything the assumed search finds is edge to edge by that check and valid, and the answer key is among it.
+
+Done, with these decisions:
+
+- The exit criterion is `tests/corpus/test_edge_to_edge.py::test_the_assumption_finds_exactly_the_edge_to_edge_assemblies`. The independent check is `support.geometry.is_edge_to_edge`, by twin edges, where the search decides by vertices inside edges.
+- An assumption is not a pruning rule, because it changes what a whole search finds. The two rules that follow from it are pruning rules within it, tested as such.
+- Instances are not changed: whether a puzzle satisfies the assumption is a property of its assembly, which a solver is not told.
+- `cor1` joined the corpus in this phase, re-imported from Tropical Puzzle Lab's main branch, so the corpus is 18 fixtures. `cor1-flat` is the first corpus puzzle whose plain search has not been seen to end. Tests that compare against the end of that search leave it out by name (`support.corpus.UNFINISHED`) and test it apart; the corpus and edge-to-edge manifests stop a search that assumes nothing at 1 500 000 nodes, well above the 1 064 878 of `new1-flat`, so where it stops does not depend on the machine. The exit criteria of phases 5 and 6 cover the corpus minus that one fixture.
+- Findings, in [algorithms.md](algorithms.md#assuming-the-pieces-meet-edge-to-edge): the 16-piece footprints drop from a million nodes to about fifty; footprint and relief costs nearly coincide; only the answer of `rat1-flat` and `rat2-flat` is edge to edge.
+
 ## Backlog
 
 Unordered, to be scheduled once phase 7 shows where the interesting questions are:
@@ -193,7 +213,8 @@ Unordered, to be scheduled once phase 7 shows where the interesting questions ar
 - nogood learning and memoization of partial states by canonical contact graph;
 - branch and bound in `tiling-search`;
 - tolerance-aware search with continuous refinement of poses, including loop-closure checks on relative transforms;
-- a solver for the tropical-aware regime, and tropical pruning beyond roof continuity (balancing conditions, admissible gradient sequences), experimental until proved;
+- a solver for the tropical-aware regime, and tropical pruning beyond roof continuity and edge to edge (edge directions of small rational slope, convex roofs for polynomials, admissible gradient sequences), experimental until proved;
+- under the edge-to-edge assumption, a counting bound during the search: every exposed edge needs an unplaced edge of its length;
 - exact or adaptive geometric predicates;
 - Z3, DLX exact-cover and MILP soft-mismatch backends;
 - comparison with human solve times from the browser player's report lines;

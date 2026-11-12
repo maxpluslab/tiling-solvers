@@ -1,6 +1,9 @@
-"""Phase 5 exit criterion: ``rust.contact_dfs`` solves and validates all 16 corpus fixtures.
+"""Phase 5 exit criterion: ``rust.contact_dfs`` solves and validates the corpus fixtures.
 
-Each fixture is searched to the end in its own regime. Every assembly returned
+Each fixture is searched to the end in its own regime. That was all 16 when the
+phase closed; ``cor1``, added since, is searched to the end with its roofs and
+not without them, and ``cor1-flat`` is tested for what an unfinished search can
+say. Every assembly returned
 passes the independent validator, the answer key is among them, and the times
 to the first solution and to the end of the search are reported separately. On
 the fixtures the Python prototype can finish, the two solvers find the same
@@ -34,14 +37,17 @@ AS_THE_PROTOTYPE = {
 }
 
 PIECES = {entry["id"]: entry["pieceCount"] for entry in corpus.index()["fixtures"]}
-CORPUS = corpus.fixture_ids(kind="corpus")
-FLAT = corpus.fixture_ids(kind="corpus", regime="footprint")
+EVERY = corpus.fixture_ids(kind="corpus")
+CORPUS = [f for f in EVERY if f not in corpus.UNFINISHED]
+FLAT = [f for f in corpus.fixture_ids(kind="corpus", regime="footprint") if f in CORPUS]
 RELIEF = corpus.fixture_ids(kind="corpus", regime="relief")
 SYNTHETIC = corpus.fixture_ids(kind="synthetic")
 # What the prototype finishes in seconds: the footprints of up to 11 pieces.
 SMALL = [f for f in FLAT if PIECES[f] <= 11]
 # Whole searches of these take tens of seconds.
 SLOW = {"new1-flat", "new2-flat"}
+# Relief puzzles built to be hard for this search (cor1: level creases at shared heights).
+HARD_RELIEF = {"cor1"}
 
 # Assemblies found by the whole search, up to turning the tray. Not in this table: one.
 # rat1-flat's 101 is the prototype's 404 in four orientations each (phase 4).
@@ -90,8 +96,11 @@ def same_set(a: list[Any], b: list[Any]) -> bool:
 
 
 def test_the_exit_criterion_covers_the_whole_corpus() -> None:
-    assert len(CORPUS) == 16 and len(FLAT) == 8 and len(RELIEF) == 8
+    assert len(EVERY) == 18 and len(FLAT) == 8 and len(RELIEF) == 9
     assert sorted(CORPUS) == sorted(FLAT + RELIEF)
+    # Only footprints are left out, and only those named.
+    assert sorted(set(EVERY) - set(CORPUS)) == sorted(corpus.UNFINISHED) == ["cor1-flat"]
+    assert set(RELIEF) >= HARD_RELIEF
     assert sorted(SMALL) == ["new3-flat", "new4-flat", "new5-flat", "rat1-flat", "rev2-flat"]
     assert set(FLAT) >= SLOW | set(ASSEMBLIES)
 
@@ -147,6 +156,23 @@ def test_the_first_solution_is_reported_before_the_search_is_finished(fixture_id
     assert not result.exhaustive
     assert result.metrics["first_solution_s"] >= 0.0
     assert "exhausted_s" not in result.metrics
+
+
+def test_a_search_that_is_stopped_claims_nothing_about_the_rest() -> None:
+    """``cor1-flat``: 27 footprints, stopped at a node limit before any assembly.
+
+    What it found by then is pinned (a regression value: no oracle knows where
+    the search is after 200 000 nodes). The finding is that it found nothing:
+    without roofs and without the edge-to-edge assumption, the corrugated
+    columns leave the search wandering for a long way.
+    """
+    instance = instance_of("cor1-flat")
+    result = solve(instance, whole(instance.regime, node_limit=200_000), validate=True)
+    assert result.status is SolveStatus.INTERRUPTED
+    assert not result.exhaustive
+    assert "exhausted_s" not in result.metrics
+    assert result.metrics["nodes"] == 200_000
+    assert result.solutions == ()
 
 
 # --- against the prototype ----------------------------------------------------------------
@@ -242,7 +268,7 @@ def test_a_random_order_is_fixed_by_its_seed(fixture_id: str) -> None:
 # --- what the roofs do --------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("fixture_id", RELIEF)
+@pytest.mark.parametrize("fixture_id", [f for f in RELIEF if f not in HARD_RELIEF])
 def test_the_roofs_leave_one_assembly_and_a_short_search(fixture_id: str) -> None:
     """A finding: in relief every corpus puzzle has one assembly, found almost directly.
 
@@ -257,6 +283,20 @@ def test_the_roofs_leave_one_assembly_and_a_short_search(fixture_id: str) -> Non
     assert len(result.solutions) == 1
     assert result.metrics["nodes"] <= 200
     assert result.metrics["rejected_roof"] > 0
+
+
+def test_level_creases_make_a_relief_puzzle_hard() -> None:
+    """``cor1``, made to be hard with its roofs on: one assembly, at ten times the cost.
+
+    Its ridges and valleys each stand at one height across a row, so the walls
+    along them look alike. Every other relief puzzle in the corpus takes at
+    most 200 nodes with every rule off; this one, of 27 pieces, more than 1 000.
+    """
+    instance = instance_of("cor1")
+    result = solve(instance, whole(instance.regime, **dict.fromkeys(SWITCHES, False)))
+    assert result.exhaustive
+    assert len(result.solutions) == 1
+    assert result.metrics["nodes"] > 1_000
 
 
 def test_a_relief_puzzle_seen_as_a_footprint_has_its_twins_assemblies() -> None:

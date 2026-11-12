@@ -1,0 +1,28 @@
+name = "edge_to_edge"
+description = """
+What the edge-to-edge assumption is worth. Every corpus puzzle is searched to its end by
+rust.contact_dfs in its own regime, assuming nothing and assuming that the pieces meet
+edge to edge, and under the assumption with each of its two rules on and off.
+`maxplus-bench run benchmarks/manifests/edge_to_edge.toml --no-times` reproduces
+benchmarks/results/edge_to_edge.md; a test holds the two together. Rows that assume
+nothing are the corpus table's, for comparison; rows under the assumption answer a
+narrower question and are not comparable with them. As there, a search that assumes
+nothing stops at 1 500 000 nodes: only cor1-flat's reaches the limit.
+"""
+fixtures = ["corpus"]
+
+# The search as it is: nothing assumed.
+[[runs]]
+solver = "rust.contact_dfs"
+
+[runs.options]
+node_limit = 1500000
+
+# The assumption, with its two rules crossed.
+[[runs]]
+solver = "rust.contact_dfs"
+assume = "edge-to-edge"
+
+[runs.options]
+equal_edges = [true, false]
+wall_edges = [true, false]

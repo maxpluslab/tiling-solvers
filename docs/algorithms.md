@@ -86,7 +86,7 @@ Rotations of the whole tray are *not* removed where candidates are generated. A 
 
 Nodes are the oriented edges of the tray and of every piece; an arc from a fixed edge to a piece edge says the two may lie flush. It is built once from the edge signatures.
 
-Without roofs the graph rules out nothing between different pieces. Pieces need not meet edge to edge, so lengths prove nothing, and whether an angle fits depends on the corner, which only the state knows. With roofs it prunes: two roofs are continuous along a shared edge only if their slopes along it agree, and the two edges run in opposite directions, so the slopes along them must cancel. On the corpus this removes more than half of all edge pairs, and it keeps every contact present in the answer keys. Poses are not stored on arcs; a pose is computed when a corner asks for one.
+Without roofs the graph rules out nothing between different pieces. Pieces need not meet edge to edge, so lengths prove nothing, and whether an angle fits depends on the corner, which only the state knows. Unless the search is told to [assume they do](#assuming-the-pieces-meet-edge-to-edge). With roofs it prunes: two roofs are continuous along a shared edge only if their slopes along it agree, and the two edges run in opposite directions, so the slopes along them must cancel. On the corpus this removes more than half of all edge pairs, and it keeps every contact present in the answer keys. Poses are not stored on arcs; a pose is computed when a corner asks for one.
 
 The prototype works in the footprint regime and so sees the unpruned graph. The relief search of `rust.contact_dfs` uses the pruned one.
 
@@ -262,6 +262,69 @@ What the tables say:
 - **What is left.** The two 16-piece footprints are hard for every configuration tried. Their searches die five or six pieces deep, in states no present rule recognises as dead when they are created. That is where learning from dead ends, or a rule that sees further, would have to show its worth.
 
 These are eight constructions. They are enough to say what happens on this corpus and not enough to say why; the difficulty proxies of phase 7 are meant for that.
+
+## Assuming the pieces meet edge to edge
+
+Every tropical puzzle is cut from a polyhedral complex. By the balancing condition, at a vertex of a tropical curve the weighted directions of its edges add up to zero, so they cannot all lie on one side of a line, and no cell has a straight angle there. In a rational puzzle the same holds of the common refinement of the two curves. So inside the tray two pieces meet along a whole edge of both, or at a single point, and never in a T: no vertex of a piece lies strictly inside an edge of another piece. The tray's wall is the exception, where creases end and several pieces may share one side. In the nine source puzzles, `cor1` included, each of the 446 edges inside the tray coincides with exactly one whole edge of one other piece.
+
+The search above does not use this. `rust.contact_dfs` can be told to, with `SolverConfig(assumptions=("edge-to-edge",))` or `maxplus-solve --assume edge-to-edge`.
+
+### An assumption, not a rule
+
+Every rule of the previous section leaves what a whole search finds unchanged. This one does not: it narrows the search to the assemblies without a T, and a puzzle that is not cut from a complex may have assemblies it no longer finds. So it is not an option but a declared assumption. It is separate from the regime, since it can be made with roofs or without; the result records it and names its own candidate set, `corner-contact-edge-to-edge/1` or `corner-contact-relief-edge-to-edge/1`; and its results are not comparable with results that assume nothing.
+
+Under the assumption a placement is refused if a vertex of it lies strictly inside an edge of a placed piece, or a vertex of a placed piece inside an edge of it, by more than the contact noise from either end (`rejected_junction`). Every pair of pieces is checked when the later one goes down, so every assembly found is without a T.
+
+**Argument.** The corner-filling argument never used how the pieces meet, so it holds unchanged for the assemblies without a T: in such an assembly, branching on any convex corner still reaches it, and the extra refusal removes only placements that make a T with a piece already down, which no such assembly contains.
+
+### Two rules that follow (`equal_edges`, `wall_edges`)
+
+If no assembly sought has a T, then every edge of a piece that is not on the tray lies against the whole of one edge of one other piece. Two rules follow, each an option that is on by default and only means something under the assumption:
+
+- **`equal_edges`.** In the [edge compatibility graph](#the-edge-compatibility-graph) a piece edge may lie against another piece's edge only if the two are equally long and, with roofs, equally high at both ends, besides the slopes that already had to cancel. Decided once, before any pose exists.
+- **`wall_edges`.** An edge with no such partner on any other piece can only lie on the tray. A placement that puts it anywhere else is refused (`rejected_wall`).
+
+**Argument.** In an assembly without a T, two pieces that share an edge share the whole of it, so the two edges are equally long, and with continuous roofs equally high at both ends. An edge that is not on the tray is shared with some other piece. A placement that breaks either is part of no assembly without a T. Both rules therefore change the work and not what a whole search under the assumption finds.
+
+That is tested on the corpus (`tests/corpus/test_edge_to_edge.py`): for every fixture, with the two rules in all four combinations, the assumed search finds exactly the assemblies of the plain search that a separately written check by twin edges (`support.geometry.is_edge_to_edge`) calls edge to edge, the answer key among them. In Rust it is tested on random convex polygons cut by chords, which leave T's, and on random cells of line arrangements, which have none and whose tiling is always found (`the_assumption_keeps_exactly_the_assemblies_without_a_t`, `a_line_arrangement_is_found_under_the_assumption`). Switching the junction check off, or turning the length comparison round, makes them fail.
+
+### What it changes
+
+Whole searches with `rust.contact_dfs`, default rules, from `benchmarks/results/edge_to_edge.md`. Nodes are deterministic.
+
+| Fixture | Pieces | Assemblies | Nodes, nothing assumed | Nodes, edge to edge | No `wall_edges` | No `equal_edges` |
+| --- | --- | --- | --- | --- | --- | --- |
+| `new5-flat` | 6 | 1 | 90 | 14 | 24 | 14 |
+| `new3-flat` | 9 | 1 | 6 104 | 24 | 36 | 24 |
+| `new4-flat` | 9 | 1 | 510 | 28 | 38 | 28 |
+| `rev2-flat` | 9 | 1 | 45 | 21 | 25 | 21 |
+| `rat1-flat` | 11 | 101 → 1 | 17 425 | 72 | 101 | 72 |
+| `new1-flat` | 16 | 1 | 1 064 878 | 49 | 57 | 49 |
+| `new2-flat` | 16 | 1 | 909 750 | 59 | 65 | 59 |
+| `rat2-flat` | 20 | 2 → 1 | 128 230 | 80 | 94 | 80 |
+| `cor1-flat` | 27 | ? → 48 | stopped at 1 500 000 | 44 539 | 50 470 | 44 539 |
+| `new5` | 6 | 1 | 26 | 14 | 26 | 14 |
+| `new3` | 9 | 1 | 44 | 24 | 40 | 24 |
+| `new4` | 9 | 1 | 45 | 24 | 39 | 24 |
+| `rev2` | 9 | 1 | 26 | 22 | 26 | 22 |
+| `rat1` | 11 | 1 | 90 | 48 | 83 | 48 |
+| `new1` | 16 | 1 | 68 | 49 | 67 | 49 |
+| `new2` | 16 | 1 | 68 | 48 | 65 | 48 |
+| `rat2` | 20 | 1 | 94 | 67 | 92 | 67 |
+| `cor1` | 27 | 1 | 1 529 | 967 | 1 378 | 967 |
+
+"No `wall_edges`" and "no `equal_edges`" are the assumption with that rule off. `cor1` and `cor1-flat` were built to be hard (below) and joined the corpus in this phase; the findings that follow are about the other eight constructions, and the last paragraph about `cor1`.
+
+- **Without roofs, it is worth more than the roofs.** The two 16-piece footprints that are hard for every configuration in the previous section take 49 and 59 nodes, against a million, and their dead ends come 1.3 and 1.6 pieces deep instead of six. On all eight constructions the footprint search under the assumption visits fewer nodes than the relief search of the same pieces that assumes nothing: 49 against 68 on `new1`, 80 against 94 on `rat2`.
+- **Most of what the roofs did was this.** A roof refuses a wrong neighbour because two planes rarely agree in height along an edge by accident. Under the assumption a wrong neighbour is already refused for meeting in a T or for a length that does not match, and adding the roofs saves at most a third of the nodes (72 to 48 on `rat1`), on four of the eight none or one. The mean degree of the edge graph says the same without a search: 0.8 to 2.4 for the footprints under the assumption, against 23 to 84 without it, and 1.2 to 6.7 for the relief puzzles without it.
+- **It decides uniqueness where the roofs did.** Of `rat1-flat`'s 101 footprint assemblies and `rat2-flat`'s 2, one each meets edge to edge: the one the roofs single out. The rearrangements that blocks of commensurable rectangles allow all make T's.
+- **`wall_edges` removes nodes; `equal_edges` only removes work.** With `equal_edges` off the node counts are the same: the junction check refuses each placement it would have kept out, after the placement has been computed and checked. What it saves is those computations, a third of the candidates per node on the footprints. `wall_edges` removes up to half the nodes of the small relief puzzles, by keeping the edges with no partner, 10 to 36 % of all edges in the corpus, on the tray from the start.
+
+The obvious consequence for the question this laboratory asks: in this corpus, a puzzle with roofs, or a puzzle that a solver may assume to be a tropical cut, is easy for this search. What remains hard has to defeat both: pieces whose equal edges and level creases leave many neighbours possible, as `cor1` in Tropical Puzzle Lab is built to.
+
+`cor1`, a 27-piece puzzle built in Tropical Puzzle Lab for exactly this, bears it out. With its roofs it takes 1 529 nodes assuming nothing and 967 assuming edge to edge, against 48 to 67 for the other relief puzzles under the assumption, and its dead ends stay almost six pieces deep. Without its roofs, assuming edge to edge, it has 48 assemblies and takes 44 539 nodes, with dead ends almost sixteen pieces deep; assuming nothing, the search has not been seen to end (stopped at 1 500 000 nodes in the table, and at 3 000 000 by hand), so how many of its assemblies have a T is not known. Its level creases give many walls of one length and one height profile, which neither the lengths nor the roofs can tell apart, and its columns change places without making a T. `wall_edges` still pays on it: without it, 1 378 nodes with the roofs and 50 470 without.
+
+Not built, and noted for later: a counting bound during the search (every exposed edge needs an unplaced edge of its length), and the further consequences of a tropical construction, such as edge directions with small rational slopes and, for polynomials, a convex roof.
 
 ## Choosing from a list (CP-SAT)
 

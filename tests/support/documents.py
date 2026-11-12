@@ -109,3 +109,23 @@ def three_strips_relief() -> dict[str, Any]:
     for piece, centre in zip(doc["pieces"], THREE_STRIP_CENTRES, strict=True):
         piece["roof"] = {"z0": 20.0 + (centre + 60.0) / 4, "gx": 0.25, "gy": 0.0}
     return doc
+
+
+def block_and_squares() -> dict[str, Any]:
+    """A 144 by 72 mm block and two 72 mm squares in the 144 mm tray.
+
+    They fit one way, up to turning the tray and exchanging the squares: the
+    block along one wall, the squares side by side along it. Their shared
+    corner then stands at the middle of the block's long edge, a T, so no
+    assembly of these pieces meets edge to edge.
+    """
+    doc = footprint()
+    block = [[-72.0, -36.0], [72.0, -36.0], [72.0, 36.0], [-72.0, 36.0]]
+    square = [[-36.0, -36.0], [36.0, -36.0], [36.0, 36.0], [-36.0, 36.0]]
+    doc["id"] = "block-and-squares"
+    doc["pieces"] = [
+        {"id": "p00", "polygon": block},
+        {"id": "p01", "polygon": [list(v) for v in square]},
+        {"id": "p02", "polygon": [list(v) for v in square]},
+    ]
+    return doc

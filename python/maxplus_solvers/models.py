@@ -40,6 +40,33 @@ class Regime(StrEnum):
     TROPICAL_AWARE = "tropical-aware"
 
 
+class Assumption(StrEnum):
+    """Something a solver is told to take for granted about the assembly it looks for.
+
+    An assumption is not a pruning rule. A rule leaves what a whole search finds
+    unchanged; an assumption narrows it to the assemblies that satisfy it, and a
+    result says which were made. It is separate from the regime: it can be made
+    with or without roofs. Results under different assumptions are not comparable.
+
+    * ``edge-to-edge``: no vertex of a piece lies strictly inside an edge of
+      another piece. Inside the tray two pieces then share a whole edge of both,
+      or a vertex, and never meet in a T. Every puzzle cut from a tropical curve
+      is like this; a puzzle cut some other way need not be.
+    """
+
+    EDGE_TO_EDGE = "edge-to-edge"
+
+
+def _assumptions(given: Any) -> tuple[Assumption, ...]:
+    """Assumptions in a fixed order, each once.
+
+    A single string is refused: it would be read letter by letter.
+    """
+    if isinstance(given, str):
+        raise ValueError("assumptions is a sequence of names, not one string")
+    return tuple(sorted({Assumption(a) for a in given}))
+
+
 class SolveStatus(StrEnum):
     """Outcome of a solve. ``docs/solver-contract.md`` says what each value claims.
 
@@ -533,9 +560,11 @@ class SolverConfig:
     seed: int = 0
     tolerances: TolerancePolicy | None = None
     options: Mapping[str, Any] = field(default_factory=dict)
+    assumptions: tuple[Assumption, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "mode", Regime(self.mode))
+        object.__setattr__(self, "assumptions", _assumptions(self.assumptions))
         if self.time_limit_s is not None and not self.time_limit_s > 0:
             raise ValueError("time_limit_s must be positive")
         if self.max_solutions is not None and self.max_solutions < 1:
@@ -550,12 +579,22 @@ class SolverConfig:
             "seed": self.seed,
             "tolerances": None if self.tolerances is None else self.tolerances.to_dict(),
             "options": dict(self.options),
+            "assumptions": [a.value for a in self.assumptions],
         }
 
     @classmethod
     def from_dict(cls, data: Any) -> Self:
-        keys = ("solver", "mode", "timeLimitS", "maxSolutions", "seed", "tolerances", "options")
-        d = _mapping(data, "config", keys)
+        keys = (
+            "solver",
+            "mode",
+            "timeLimitS",
+            "maxSolutions",
+            "seed",
+            "tolerances",
+            "options",
+        )
+        # Absent in records written before assumptions existed: then none was made.
+        d = _mapping(data, "config", keys, ("assumptions",))
         tolerances = d["tolerances"]
         return cls(
             solver=_string(d["solver"], "config.solver"),
@@ -565,6 +604,7 @@ class SolverConfig:
             seed=d["seed"],
             tolerances=None if tolerances is None else TolerancePolicy.from_dict(tolerances),
             options=dict(d["options"]),
+            assumptions=_assumptions(d.get("assumptions", ())),
         )
 
 
@@ -604,6 +644,10 @@ class SolveResult:
     or "exactly these solutions" a claim about the puzzle; otherwise the result
     is relative to the candidate set, which ``candidate_set`` names.
 
+    ``assumptions`` are what the solver took for granted about the assemblies
+    it looked for. Everything the result says is about assemblies that satisfy
+    them, and the candidate set's name says so too.
+
     ``config`` and ``solver_version`` record what produced the result, so that
     it can be reproduced.
     """
@@ -619,10 +663,12 @@ class SolveResult:
     candidate_set: str = ""
     config: SolverConfig | None = None
     solver_version: str = ""
+    assumptions: tuple[Assumption, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "status", SolveStatus(self.status))
         object.__setattr__(self, "regime", Regime(self.regime))
+        object.__setattr__(self, "assumptions", _assumptions(self.assumptions))
         object.__setattr__(self, "solutions", tuple(self.solutions))
         if (self.status is SolveStatus.SOLVED) != bool(self.solutions):
             raise ValueError("status is 'solved' exactly when there is at least one solution")
@@ -644,6 +690,7 @@ class SolveResult:
             "candidateSet": self.candidate_set,
             "config": None if self.config is None else self.config.to_dict(),
             "solverVersion": self.solver_version,
+            "assumptions": [a.value for a in self.assumptions],
         }
 
     @classmethod
@@ -661,7 +708,7 @@ class SolveResult:
             "config",
             "solverVersion",
         )
-        d = _mapping(data, "result", keys)
+        d = _mapping(data, "result", keys, ("assumptions",))
         return cls(
             status=SolveStatus(d["status"]),
             solver=d["solver"],
@@ -674,4 +721,5 @@ class SolveResult:
             candidate_set=d["candidateSet"],
             config=None if d["config"] is None else SolverConfig.from_dict(d["config"]),
             solver_version=d["solverVersion"],
+            assumptions=_assumptions(d.get("assumptions", ())),
         )

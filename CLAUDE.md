@@ -31,7 +31,9 @@ cargo test -p tiling-search                         # the search, on random tili
 uv run maxplus-solve new5-flat --max-solutions all --validate                     # run a solver from the command line
 uv run maxplus-solve new5 --mode relief --option lookahead=true --option order=random --seed 3
 uv run maxplus-solve rat1-flat --solver cp_sat.placements --max-solutions all --option coverage=false   # CP-SAT, needs the cp-sat extra
+uv run maxplus-solve new1-flat --assume edge-to-edge --max-solutions all --validate   # assume no T between pieces
 uv run maxplus-bench run benchmarks/manifests/corpus.toml --no-times             # every solver on the corpus: the table in benchmarks/results/corpus.md
+uv run maxplus-bench run benchmarks/manifests/edge_to_edge.toml --no-times       # the table in benchmarks/results/edge_to_edge.md
 uv run maxplus-bench run benchmarks/manifests/tolerance.toml                     # an experiment; records go to benchmarks/results/<name>.jsonl
 uv run maxplus-bench proxies --results benchmarks/results/corpus.jsonl           # difficulty proxies against what the searches cost
 uv run python scripts/import_fixtures.py --source ../tropical-puzzle-lab          # regenerate fixtures and keys
@@ -85,6 +87,7 @@ Rules:
 ## Invariants that are easy to break
 
 - **Solver instances carry no answer.** The source `puzzle.json` leaks the solution three ways: `reference.poses`; local polygons stored in their solved orientation (every reference `theta` is 0); and piece ids and order that encode the tropical construction. Instances must be sanitized: seeded random rotation per piece (roof gradient rotated with it), random starting vertex, shuffled order, opaque ids, no `reference`, `tropical` or `provenance`. The sanitizer seed is part of the answer, since the rotations can be recomputed from it: it is recorded in the answer key and never in an instance. Answer keys live under `tests/` and only tests load them.
+- **An assumption is not a rule.** A pruning rule leaves what a whole search finds unchanged; an assumption (`SolverConfig.assumptions`, today only `edge-to-edge`) narrows it. A solver declares the assumptions it can make, a result records them and names a candidate set that says so, and results under different assumptions are not compared. Rules that follow from an assumption are options, tested not to change what the search finds under it.
 - **Three information regimes stay separate:** footprint (polygons only), relief (polygons and roof planes), tropical-aware (construction data as well). A solver declares which one it uses; results from different regimes are not comparable.
 - **The validator is independent of the search.** `validation.py` must not import `_native` or reuse the Rust geometry, so one bug cannot affect both. It follows the browser's completion rules and may only depart from them on the stricter side; the three places it does are listed in its module docstring.
 - **Solvers never call the validator.** `api.solve(..., validate=True)` is the only place the two meet, after the search has returned. A search that consulted the validator would be checking its answer with its own oracle.

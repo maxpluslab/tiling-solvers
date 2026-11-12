@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from maxplus_solvers import _native
+from maxplus_solvers import _native, solvers
 from support import corpus
 
 ROOT = corpus.ROOT
@@ -195,7 +195,14 @@ def test_every_search_rule_is_a_documented_switch() -> None:
     contract = (ROOT / "docs" / "solver-contract.md").read_text(encoding="utf-8")
     algorithms = (ROOT / "docs" / "algorithms.md").read_text(encoding="utf-8")
     expected = {
-        contact_dfs: {"anchor", "cavity_pruning", "closure_pruning", "lookahead"},
+        contact_dfs: {
+            "anchor",
+            "cavity_pruning",
+            "closure_pruning",
+            "lookahead",
+            "equal_edges",
+            "wall_edges",
+        },
         cp_sat: {"anchor", "cavity_pruning", "closure_pruning", "coverage"},
     }
     for solver, rules in expected.items():
@@ -210,6 +217,31 @@ def test_every_search_rule_is_a_documented_switch() -> None:
             assert f"| `{option}` |" in table, f"{solver.NAME}: {option} is not in its table"
         for switch in switches:
             assert f"`{switch}`" in algorithms, f"{switch} has no place in algorithms.md"
+
+
+def test_an_assumption_is_declared_documented_and_named_in_the_candidate_set() -> None:
+    """An assumption narrows what a search finds, so it is never an option.
+
+    Every solver declares what it can assume; each assumption has a row in the
+    contract; a solver that can make one has a candidate set for it in every
+    regime it works in, distinct from the set it uses assuming nothing.
+    """
+    from maxplus_solvers.models import Assumption
+    from maxplus_solvers.solvers import contact_dfs
+
+    contract = (ROOT / "docs" / "solver-contract.md").read_text(encoding="utf-8")
+    _, _, section = contract.partition("## Assumptions")
+    for assumption in Assumption:
+        assert f"| `{assumption.value}` |" in section, assumption
+        assert assumption.value not in contact_dfs.DEFAULTS, "an assumption is not an option"
+    for name in solvers.available():
+        spec = solvers.get(name)
+        assert spec.assumptions <= set(Assumption), name
+    assert contact_dfs.SPEC.assumptions == {Assumption.EDGE_TO_EDGE}
+    assert set(contact_dfs.EDGE_TO_EDGE_SETS) == set(contact_dfs.CANDIDATE_SETS)
+    for regime, name in contact_dfs.EDGE_TO_EDGE_SETS.items():
+        assert name != contact_dfs.CANDIDATE_SETS[regime]
+        assert f"| `{name}` |" in contract, name
 
 
 def test_cp_sat_is_given_one_worker_and_no_objective() -> None:

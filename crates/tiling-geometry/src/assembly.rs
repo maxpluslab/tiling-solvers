@@ -36,7 +36,7 @@ use tiling_core::{Pose, Vec2};
 
 use crate::cavity::{Cavity, cavities};
 use crate::contact::{ContactTolerance, Corner, EdgeRef, free_corners, pose_at_corner};
-use crate::graph::{EdgeGraph, Shape};
+use crate::graph::{EdgeGraph, Meeting, Shape};
 use crate::polygon::{is_convex_ccw, outside_depth, transform};
 use crate::relief::{roof_height, seam_step};
 use crate::sat::penetration_depth;
@@ -82,6 +82,12 @@ pub struct CandidateStats {
     /// before the other checks, or along a shared edge after them. Always zero
     /// for pieces without roofs.
     pub rejected_roof: u64,
+    /// Rejected for putting a vertex strictly inside an edge of a placed piece,
+    /// or the reverse. Always zero unless pieces are assumed to meet edge to edge.
+    pub rejected_junction: u64,
+    /// Rejected for taking an edge that no other piece's edge can lie against
+    /// off the tray. Always zero unless that rule is on.
+    pub rejected_wall: u64,
 }
 
 /// Smallest axis-aligned box around a polygon, as `[min x, min y, max x, max y]`.
@@ -99,6 +105,22 @@ fn bounds(polygon: &[Vec2]) -> [f64; 4] {
         b[3] = b[3].max(p[1]);
     }
     b
+}
+
+/// Whether a point of `vertices` lies on an edge of `polygon`, more than
+/// `tolerance` from both of its ends.
+fn vertex_inside_an_edge(vertices: &[Vec2], polygon: &[Vec2], tolerance: f64) -> bool {
+    let n = polygon.len();
+    vertices.iter().any(|v| {
+        (0..n).any(|i| {
+            let (a, b) = (polygon[i], polygon[(i + 1) % n]);
+            let (dx, dy) = (b[0] - a[0], b[1] - a[1]);
+            let length = dx.hypot(dy);
+            let along = ((v[0] - a[0]) * dx + (v[1] - a[1]) * dy) / length;
+            let off = ((v[0] - a[0]) * dy - (v[1] - a[1]) * dx) / length;
+            off.abs() <= tolerance && along > tolerance && along < length - tolerance
+        })
+    })
 }
 
 /// Whether two boxes are further apart than `slack` along an axis.
@@ -143,6 +165,7 @@ pub struct Assembly {
     shapes: Vec<Shape>,
     graph: EdgeGraph,
     tolerance: ContactTolerance,
+    meeting: Meeting,
     poses: Vec<Option<Pose>>,
     world: Vec<Option<Vec<Vec2>>>,
     boxes: Vec<[f64; 4]>,
@@ -152,10 +175,21 @@ pub struct Assembly {
 }
 
 impl Assembly {
+    /// An assembly in which nothing is assumed about how pieces meet.
     pub fn new(
         target: Vec<Vec2>,
         shapes: Vec<Shape>,
         tolerance: ContactTolerance,
+    ) -> Result<Assembly, AssemblyError> {
+        Assembly::meeting(target, shapes, tolerance, Meeting::default())
+    }
+
+    /// An assembly whose candidates respect `meeting`.
+    pub fn meeting(
+        target: Vec<Vec2>,
+        shapes: Vec<Shape>,
+        tolerance: ContactTolerance,
+        meeting: Meeting,
     ) -> Result<Assembly, AssemblyError> {
         let positive = |v: f64| v.is_finite() && v > 0.0;
         if ![
@@ -175,13 +209,14 @@ impl Assembly {
         if let Some(piece) = shapes.iter().position(|s| !is_convex_ccw(&s.polygon)) {
             return Err(AssemblyError::NotConvex(Some(piece)));
         }
-        let graph = EdgeGraph::build(&shapes, &tolerance);
+        let graph = EdgeGraph::build_for(&shapes, &tolerance, meeting.uses_equal_edges());
         let count = shapes.len();
         Ok(Assembly {
             target,
             shapes,
             graph,
             tolerance,
+            meeting,
             poses: vec![None; count],
             world: vec![None; count],
             boxes: vec![[0.0; 4]; count],
@@ -334,6 +369,40 @@ impl Assembly {
         })
     }
 
+    /// Whether `world` and a placed piece meet in a T: a vertex of one strictly
+    /// inside an edge of the other.
+    fn makes_a_junction(&self, world: &[Vec2]) -> bool {
+        let reach = bounds(world);
+        let tolerance = self.tolerance.length;
+        self.stack.iter().any(|&other| {
+            !apart(&reach, &self.boxes[other], tolerance)
+                && self.world[other].as_ref().is_some_and(|polygon| {
+                    vertex_inside_an_edge(world, polygon, tolerance)
+                        || vertex_inside_an_edge(polygon, world, tolerance)
+                })
+        })
+    }
+
+    /// Whether `world`, a placement of `piece`, has an edge off the tray's
+    /// boundary that no other piece's edge could lie against.
+    fn strands_an_edge(&self, piece: usize, world: &[Vec2]) -> bool {
+        let n = world.len();
+        let tolerance = self.tolerance.length;
+        let on_the_tray = |a: Vec2, b: Vec2| {
+            let m = self.target.len();
+            (0..m).any(|j| {
+                let (s, e) = (self.target[j], self.target[(j + 1) % m]);
+                let (dx, dy) = (e[0] - s[0], e[1] - s[1]);
+                let length = dx.hypot(dy);
+                let off = |p: Vec2| ((p[0] - s[0]) * dy - (p[1] - s[1]) * dx) / length;
+                off(a).abs() <= tolerance && off(b).abs() <= tolerance
+            })
+        };
+        (0..n).any(|i| {
+            !self.graph.has_partner(piece, i) && !on_the_tray(world[i], world[(i + 1) % n])
+        })
+    }
+
     /// Measure a placement of `piece` against the target and the other placed pieces.
     pub fn check_placement(
         &self,
@@ -383,6 +452,11 @@ impl Assembly {
     /// placement is known to fit, the heights along every edge it shares with a
     /// placed piece.
     ///
+    /// If the pieces are assumed to meet edge to edge ([`Meeting`]), a
+    /// placement that meets a placed piece in a T is left out, and so, by the
+    /// rules that follow from the assumption, are placements that no assembly
+    /// of that kind contains.
+    ///
     /// For a convex corner the list is complete in the sense of the module
     /// documentation. For any other corner it is a list of legal placements and
     /// nothing more.
@@ -422,6 +496,10 @@ impl Assembly {
                     self.stats.rejected_outside += 1;
                 } else if self.enters_a_placed_piece(&world) {
                     self.stats.rejected_overlap += 1;
+                } else if self.meeting.edge_to_edge && self.makes_a_junction(&world) {
+                    self.stats.rejected_junction += 1;
+                } else if self.meeting.uses_wall_edges() && self.strands_an_edge(piece, &world) {
+                    self.stats.rejected_wall += 1;
                 } else if self.roof_step_of(piece, &pose, &world) > self.tolerance.height {
                     self.stats.rejected_roof += 1;
                 } else {
@@ -458,6 +536,7 @@ impl Assembly {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::graph::Meeting;
     use crate::polygon::{centroid, signed_area};
     use crate::testing::{TOL, Tiling, close, tiling};
     use proptest::prelude::*;
@@ -644,7 +723,9 @@ mod tests {
                 generated: 5,
                 rejected_outside: 1,
                 rejected_overlap: 0,
-                rejected_roof: 0
+                rejected_roof: 0,
+                rejected_junction: 0,
+                rejected_wall: 0,
             }
         );
     }
@@ -852,5 +933,94 @@ mod tests {
                 }
             }
         }
+    }
+
+    /// A 4 by 2 block and two 2 by 2 squares fill a 4 by 4 tray in one way, and
+    /// in it the squares' shared corner stands in the middle of the block's long
+    /// edge: a T.
+    fn block_and_squares(meeting: Meeting) -> Assembly {
+        let shapes = vec![
+            bare(rectangle(4.0, 2.0)),
+            bare(rectangle(2.0, 2.0)),
+            bare(rectangle(2.0, 2.0)),
+        ];
+        Assembly::meeting(tray(), shapes, TOL, meeting).unwrap()
+    }
+
+    #[test]
+    fn a_placement_that_makes_a_t_is_refused_only_under_the_assumption() {
+        // The junction check alone: neither rule that follows from the assumption.
+        let only = Meeting {
+            edge_to_edge: true,
+            equal_edges: false,
+            wall_edges: false,
+        };
+        for (meeting, offered) in [(Meeting::default(), true), (only, false)] {
+            let mut assembly = block_and_squares(meeting);
+            assembly.place(0, at(2.0, 1.0, 0.0)).unwrap();
+            // The corner over the block's top-left vertex. A square there has its
+            // bottom-right vertex at (2, 2), inside the block's top edge.
+            let corner = corner_at(&assembly, 0.0, 2.0);
+            let candidates = assembly.propose(&corner);
+            let square = candidates.iter().any(|c| c.piece == 1);
+            assert_eq!(square, offered, "{meeting:?}");
+            assert_eq!(
+                assembly.stats().rejected_junction > 0,
+                !offered,
+                "{meeting:?}"
+            );
+        }
+        // Two pieces meeting along a whole edge are no T: one square on another.
+        // The block lying over the square is one: the square's top-right vertex,
+        // (2, 2), is inside its bottom edge. Standing, it reaches outside.
+        let mut assembly = block_and_squares(only);
+        assembly.place(1, at(1.0, 1.0, 0.0)).unwrap();
+        let corner = corner_at(&assembly, 0.0, 2.0);
+        let pieces: Vec<usize> = assembly.propose(&corner).iter().map(|c| c.piece).collect();
+        assert_eq!(pieces, vec![2]);
+        assert_eq!(assembly.stats().rejected_junction, 1);
+    }
+
+    #[test]
+    fn an_edge_no_other_piece_matches_is_kept_on_the_tray() {
+        let assembly = block_and_squares(Meeting::edge_to_edge());
+        // The block's long edges (0 and 2, 4 long) have no partner; its short ones
+        // match a square's side, and every side of a square matches the other square.
+        let partners: Vec<bool> = (0..4).map(|e| assembly.graph().has_partner(0, e)).collect();
+        assert_eq!(partners, vec![false, true, false, true]);
+        assert!((0..4).all(|e| assembly.graph().has_partner(1, e)));
+
+        // In the empty tray's corner the block, lying or standing, puts a long edge
+        // off the wall; only the square is offered.
+        for (wall_edges, block) in [(true, false), (false, true)] {
+            let meeting = Meeting {
+                wall_edges,
+                ..Meeting::edge_to_edge()
+            };
+            let mut assembly = block_and_squares(meeting);
+            let corner = corner_at(&assembly, 0.0, 0.0);
+            let candidates = assembly.propose(&corner);
+            assert_eq!(candidates.iter().any(|c| c.piece == 0), block);
+            assert!(candidates.iter().any(|c| c.piece == 1));
+            assert_eq!(
+                assembly.stats().rejected_wall,
+                if wall_edges { 2 } else { 0 }
+            );
+        }
+    }
+
+    #[test]
+    fn without_the_assumption_its_rules_do_nothing() {
+        let rules_alone = Meeting {
+            edge_to_edge: false,
+            equal_edges: true,
+            wall_edges: true,
+        };
+        let mut plain = block_and_squares(Meeting::default());
+        let mut alone = block_and_squares(rules_alone);
+        assert_eq!(plain.graph().arc_count(), alone.graph().arc_count());
+        let corner = corner_at(&plain, 0.0, 0.0);
+        assert_eq!(plain.propose(&corner), alone.propose(&corner));
+        assert_eq!(plain.stats(), alone.stats());
     }
 }

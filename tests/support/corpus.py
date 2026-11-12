@@ -17,6 +17,11 @@ MINI_SOURCE = ROOT / "tests" / "data" / "source" / "mini" / "puzzle.json"
 
 SOURCE_ENV = "TROPICAL_PUZZLE_LAB"
 
+# Corpus fixtures whose whole search, assuming nothing, has not been seen to end:
+# cor1-flat was stopped at 3 000 000 nodes. Tests that compare against the end of
+# that search leave these out by name, and test them separately for what can be said.
+UNFINISHED = frozenset({"cor1-flat"})
+
 
 def read_json(path: Path) -> Any:
     return json.loads(path.read_text(encoding="utf-8"))

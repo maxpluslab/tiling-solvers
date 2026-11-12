@@ -29,10 +29,14 @@ def _ratio(top: Any, bottom: Any) -> str:
 def varied(records: Sequence[Mapping[str, Any]]) -> list[str]:
     """Names of the settings that differ between records: the factors of the experiment.
 
-    Option names, then ``seed`` and ``contactScale`` if they vary.
+    ``assumes`` first if any record makes an assumption, then option names,
+    then ``seed`` and ``contactScale`` if they vary. The assumption is shown
+    whenever one is made, varied or not: rows under different assumptions do not
+    say the same thing.
     """
     every = sorted({name for record in records for name in record["config"]["options"]})
-    names = [
+    names = ["assumes"] if any(record["config"].get("assumptions") for record in records) else []
+    names += [
         name
         for name in every
         if len({repr(record["config"]["options"].get(name)) for record in records}) > 1
@@ -45,6 +49,8 @@ def varied(records: Sequence[Mapping[str, Any]]) -> list[str]:
 
 
 def _setting(record: Mapping[str, Any], name: str) -> str:
+    if name == "assumes":
+        return ", ".join(record["config"].get("assumptions") or ["nothing"])
     if name == "seed":
         return str(record["config"]["seed"])
     if name == "contactScale":

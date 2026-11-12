@@ -9,7 +9,7 @@ reduced to the regime the configuration asks for.
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 
-from maxplus_solvers.models import PuzzleInstance, Regime, SolverConfig, SolveResult
+from maxplus_solvers.models import Assumption, PuzzleInstance, Regime, SolverConfig, SolveResult
 
 SolverFunction = Callable[[PuzzleInstance, SolverConfig], SolveResult]
 
@@ -25,6 +25,9 @@ class SolverSpec:
     # not comparable.
     candidate_sets: Mapping[Regime, str]
     description: str
+    # The assumptions it can be asked to make. Making one changes what it looks
+    # for, so a solver that has not declared it is not handed it.
+    assumptions: frozenset[Assumption] = frozenset()
 
     @property
     def regimes(self) -> frozenset[Regime]:

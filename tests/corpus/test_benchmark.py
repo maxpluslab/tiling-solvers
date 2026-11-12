@@ -30,6 +30,8 @@ CORPUS = corpus.fixture_ids(kind="corpus")
 FLAT = corpus.fixture_ids(kind="corpus", regime="footprint")
 RELIEF = corpus.fixture_ids(kind="corpus", regime="relief")
 HASHES = {entry["id"]: entry["instanceHash"] for entry in corpus.index()["fixtures"]}
+# Where the corpus manifest stops a search that would not end.
+NODE_LIMIT = 1_500_000
 
 
 def by(records: list[dict[str, Any]], solver: str) -> dict[str, dict[str, Any]]:
@@ -56,7 +58,8 @@ def test_one_command_reproduces_the_corpus_table(
     assert {record["solver"] for record in records} == set(solvers.available())
     assert sorted(by(records, "rust.contact_dfs")) == sorted(CORPUS)
     assert sorted(by(records, "cp_sat.placements")) == sorted(CORPUS)
-    assert sorted(by(records, "python.contact_dfs")) == sorted(FLAT)
+    # The prototype's list was fixed before cor1 joined the corpus; it would stop there too.
+    assert sorted(by(records, "python.contact_dfs")) == sorted(set(FLAT) - corpus.UNFINISHED)
     for record in records:
         # Whatever was returned passes the validator.
         assert record["status"] in ("solved", "interrupted"), record["fixture"]
@@ -66,9 +69,18 @@ def test_one_command_reproduces_the_corpus_table(
         assert record["config"]["tolerances"]["contactNoiseMm"] > 0
         assert record["config"]["seed"] == 0
         assert record["instanceHash"] == HASHES[record["fixture"]]
-    # The two production solvers finish everything; the prototype is stopped on the largest.
+    # The two production solvers finish everything but cor1-flat, stopped at the node
+    # limit before it found anything; the prototype is stopped on the largest.
     for solver in ("rust.contact_dfs", "cp_sat.placements"):
-        assert all(record["exhaustive"] for record in by(records, solver).values())
+        results = by(records, solver)
+        unfinished = sorted(f for f, record in results.items() if not record["exhaustive"])
+        assert unfinished == sorted(corpus.UNFINISHED), solver
+        for fixture in unfinished:
+            assert results[fixture]["status"] == "interrupted"
+            assert results[fixture]["metrics"]["nodes"] == NODE_LIMIT
+        # The limit is far above what any finished search needed.
+        finished = [r["metrics"]["nodes"] for f, r in results.items() if f not in unfinished]
+        assert max(finished) < NODE_LIMIT / 1.4
     prototype = by(records, "python.contact_dfs")
     stopped = [fixture for fixture, record in prototype.items() if not record["exhaustive"]]
     assert sorted(stopped) == ["new1-flat", "new2-flat", "rat2-flat"]
@@ -80,8 +92,8 @@ def test_the_committed_table_is_the_reproducible_kind() -> None:
     header = [cell.strip() for cell in lines[0].strip("|").split("|")]
     assert header[:4] == ["Fixture", "Pieces", "Solver", "Mode"]
     assert not [title for title in header if title.endswith(", s") or "SAT" in title]
-    # 16 + 16 + 8 runs, a header and a rule.
-    assert len(lines) == 40 + 2
+    # 18 + 18 + 8 runs, a header and a rule.
+    assert len(lines) == 44 + 2
 
 
 # --- the committed manifests --------------------------------------------------------------
@@ -108,6 +120,7 @@ def test_every_committed_manifest_can_be_run(path: Path) -> None:
 def test_the_manifests_the_documents_name_exist() -> None:
     assert {path.stem for path in MANIFESTS.glob("*.toml")} == {
         "corpus",
+        "edge_to_edge",
         "factorial",
         "smoke",
         "tolerance",

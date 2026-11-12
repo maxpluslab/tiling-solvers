@@ -7,7 +7,7 @@ use proptest::prelude::*;
 use tiling_core::{Pose, Roof, Vec2};
 
 use crate::contact::ContactTolerance;
-use crate::polygon::{centroid, is_convex_ccw};
+use crate::polygon::{centroid, distance_to_segment, is_convex_ccw};
 
 /// Coincidence bounds for tests on exact constructions.
 pub const TOL: ContactTolerance = ContactTolerance {
@@ -157,33 +157,146 @@ pub fn tiling() -> impl Strategy<Value = Tiling> {
                     world.push(two);
                 }
             }
-            let mut local = Vec::new();
-            let mut poses = Vec::new();
-            for (piece, turn) in world.iter().zip(turns) {
-                let [cx, cy] = centroid(piece);
-                let back = Pose {
-                    x: 0.0,
-                    y: 0.0,
-                    theta: -turn,
-                };
-                local.push(
-                    piece
-                        .iter()
-                        .map(|p| back.apply([p[0] - cx, p[1] - cy]))
-                        .collect(),
-                );
-                poses.push(Pose {
-                    x: cx,
-                    y: cy,
-                    theta: turn,
-                });
-            }
-            Tiling {
-                target,
-                world,
-                local,
-                poses,
-            }
+            handed_out(target, world, &turns)
         })
         .prop_filter("at least one cut succeeded", |t| t.world.len() >= 2)
+}
+
+/// The pieces of a tiling as a solver receives them: each about its centroid,
+/// turned by its own angle.
+fn handed_out(target: Vec<Vec2>, world: Vec<Vec<Vec2>>, turns: &[f64]) -> Tiling {
+    let mut local = Vec::new();
+    let mut poses = Vec::new();
+    for (piece, &turn) in world.iter().zip(turns) {
+        let [cx, cy] = centroid(piece);
+        let back = Pose {
+            x: 0.0,
+            y: 0.0,
+            theta: -turn,
+        };
+        local.push(
+            piece
+                .iter()
+                .map(|p| back.apply([p[0] - cx, p[1] - cy]))
+                .collect(),
+        );
+        poses.push(Pose {
+            x: cx,
+            y: cy,
+            theta: turn,
+        });
+    }
+    Tiling {
+        target,
+        world,
+        local,
+        poses,
+    }
+}
+
+/// The two sides of a convex polygon cut by the line through `at` in direction
+/// `angle`, or `None` if the line does not pass through its interior.
+fn split(polygon: &[Vec2], at: Vec2, angle: f64) -> Option<[Vec<Vec2>; 2]> {
+    let (s, c) = angle.sin_cos();
+    let side: Vec<f64> = polygon
+        .iter()
+        .map(|p| (p[1] - at[1]) * c - (p[0] - at[0]) * s)
+        .collect();
+    if side.iter().all(|&v| v > 0.0) || side.iter().all(|&v| v < 0.0) {
+        return None;
+    }
+    let (mut left, mut right) = (Vec::new(), Vec::new());
+    let n = polygon.len();
+    for i in 0..n {
+        let (p, q) = (polygon[i], polygon[(i + 1) % n]);
+        let (a, b) = (side[i], side[(i + 1) % n]);
+        if a > 0.0 {
+            left.push(p)
+        } else {
+            right.push(p)
+        }
+        if (a > 0.0) != (b > 0.0) {
+            let t = a / (a - b);
+            let crossing = [p[0] + t * (q[0] - p[0]), p[1] + t * (q[1] - p[1])];
+            left.push(crossing);
+            right.push(crossing);
+        }
+    }
+    Some([left, right])
+}
+
+/// Tilings of 2 to 8 pieces that meet edge to edge: a convex polygon cut by
+/// up to three whole lines, so that the pieces are the cells of a line
+/// arrangement. Every cell a line crosses is cut, and a line whose cuts would
+/// leave a badly shaped piece is not drawn at all.
+pub fn line_tiling() -> impl Strategy<Value = Tiling> {
+    let lines = prop::collection::vec((-15.0f64..15.0, -15.0f64..15.0, 0.0f64..PI), 1..=3);
+    let turns = prop::collection::vec(-PI..PI, 8);
+    (convex_polygon(), pose(), lines, turns)
+        .prop_map(|(polygon, at, lines, turns)| {
+            let target: Vec<Vec2> = polygon
+                .iter()
+                .map(|p| at.apply([3.0 * p[0], 3.0 * p[1]]))
+                .collect();
+            let middle = centroid(&target);
+            let mut world = vec![target.clone()];
+            for (dx, dy, angle) in lines {
+                let through = [middle[0] + dx, middle[1] + dy];
+                let mut cut = Vec::new();
+                let mut drawn = true;
+                for cell in &world {
+                    match split(cell, through, angle) {
+                        Some([one, two]) if well_shaped(&one) && well_shaped(&two) => {
+                            cut.push(one);
+                            cut.push(two);
+                        }
+                        Some(_) => drawn = false,
+                        None => cut.push(cell.clone()),
+                    }
+                }
+                if drawn && cut.len() <= 8 {
+                    world = cut;
+                }
+            }
+            handed_out(target, world, &turns)
+        })
+        .prop_filter("at least one line was drawn", |t| t.world.len() >= 2)
+}
+
+/// Whether placed pieces meet edge to edge, decided by twin edges: every piece
+/// edge either lies on the target's boundary or is, reversed, exactly one edge
+/// of exactly one other piece. For pieces that cover the target this is the
+/// same as no vertex lying strictly inside another piece's edge, which is how
+/// the candidate generator decides it; the two are written differently so that
+/// one can check the other.
+pub fn is_edge_to_edge(target: &[Vec2], world: &[Vec<Vec2>], tolerance: f64) -> bool {
+    let near = |a: Vec2, b: Vec2| (a[0] - b[0]).hypot(a[1] - b[1]) <= tolerance;
+    let m = target.len();
+    let on_boundary = |a: Vec2, b: Vec2| {
+        (0..m).any(|j| {
+            let (s, e) = (target[j], target[(j + 1) % m]);
+            distance_to_segment(a, s, e) <= tolerance && distance_to_segment(b, s, e) <= tolerance
+        })
+    };
+    world.iter().enumerate().all(|(p, piece)| {
+        let n = piece.len();
+        (0..n).all(|i| {
+            let (a, b) = (piece[i], piece[(i + 1) % n]);
+            if on_boundary(a, b) {
+                return true;
+            }
+            let twins: usize = world
+                .iter()
+                .enumerate()
+                .filter(|&(q, _)| q != p)
+                .map(|(_, other)| {
+                    let k = other.len();
+                    (0..k)
+                        .filter(|&j| near(a, other[(j + 1) % k]) && near(b, other[j]))
+                        .count()
+                })
+                .sum();
+            twins == 1
+        })
+    })
 }

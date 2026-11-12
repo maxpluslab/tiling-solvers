@@ -8,6 +8,7 @@ package, not from ``_native``.
 from maxplus_solvers import _native
 from maxplus_solvers.api import available_solvers, load_puzzle, solve
 from maxplus_solvers.models import (
+    Assumption,
     InstanceError,
     Piece,
     Pose,
@@ -24,6 +25,7 @@ from maxplus_solvers.models import (
 __version__: str = _native.version()
 
 __all__ = [
+    "Assumption",
     "InstanceError",
     "Piece",
     "Pose",

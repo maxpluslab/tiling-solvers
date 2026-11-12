@@ -53,16 +53,19 @@ def placed(fixture: dict[str, Any], key: dict[str, Any]) -> dict[str, list[tuple
 
 
 def test_the_corpus_is_complete() -> None:
-    """Eight constructions in two variants, and the four synthetics."""
-    constructions = ["new1", "new2", "new3", "new4", "new5", "rat1", "rat2", "rev2"]
+    """Nine constructions in two variants, and the four synthetics."""
+    constructions = ["cor1", "new1", "new2", "new3", "new4", "new5", "rat1", "rat2", "rev2"]
     assert sorted(CORPUS) == sorted(constructions + [f"{c}-flat" for c in constructions])
     assert sorted(SYNTHETIC) == [
         "syn-four-squares", "syn-four-triangles", "syn-two-rectangles", "syn-two-rectangles-ridge",
     ]  # fmt: skip
     counts = {entry["id"]: entry["pieceCount"] for entry in corpus.index()["fixtures"]}
     assert {c: counts[c] for c in constructions} == {
-        "new1": 16, "new2": 16, "new3": 9, "new4": 9, "new5": 6, "rat1": 11, "rat2": 20, "rev2": 9,
+        "cor1": 27, "new1": 16, "new2": 16, "new3": 9, "new4": 9, "new5": 6, "rat1": 11, "rat2": 20,
+        "rev2": 9,
     }  # fmt: skip
+    # Every flat twin has its relief puzzle's pieces.
+    assert all(counts[f"{c}-flat"] == counts[c] for c in constructions)
 
 
 def test_files_and_manifest_agree() -> None:

@@ -27,6 +27,7 @@ maxplus-solve new5 --mode relief --max-solutions all --option closure_pruning=fa
 | `seed` | For solvers that randomize. A deterministic solver ignores it and says so. A solver that uses it gives the same result for the same seed. |
 | `tolerances` | A `TolerancePolicy`, or `None` for the instance's published ones. |
 | `options` | Solver-specific. An option a solver does not know is an error, not ignored. |
+| `assumptions` | What the solver is to take for granted about the assemblies it looks for. Today one: `edge-to-edge`. Default none. See [Assumptions](#assumptions). |
 
 Before the solver runs, the instance is reduced to `config.mode`. A relief puzzle solved in `footprint` mode is handed over without its roofs, and the result's `instance_hash` is that of the reduced instance. Asking for a mode with more information than the instance has is an error, and so is a mode the solver does not declare. Results from different regimes are not comparable.
 
@@ -41,6 +42,16 @@ Before the solver runs, the instance is reduced to `config.mode`. A relief puzzl
 `SolveResult` refuses combinations outside this table.
 
 `no_solution_found` is not "the puzzle has no solution". It says the solver's candidates contain none. The next section says when the stronger statement is allowed.
+
+## Assumptions
+
+An assumption narrows what a solver looks for, where a regime limits what it is told. It is a statement about the assembly sought, such as "the pieces meet edge to edge", and a solver that makes it does not look for assemblies that break it. That makes it unlike an option: a pruning rule must not change what a whole search finds, an assumption does by design.
+
+| Assumption | Meaning | Solvers |
+| --- | --- | --- |
+| `edge-to-edge` | No vertex of a piece lies strictly inside an edge of another piece. Inside the tray two pieces share a whole edge of both, or a point, and never meet in a T. True of every puzzle cut from a tropical curve, which is a polyhedral complex. | `rust.contact_dfs` |
+
+A solver declares the assumptions it can make, and `solve` refuses one it has not declared. The result's `assumptions` repeat what was assumed, and its `candidate_set` names a set that says so. Every claim of the result, `no_solution_found` and solution counts included, is about the assemblies that satisfy its assumptions: "one assembly, assuming edge to edge" leaves open how many there are with a T. Results under different assumptions are not comparable, any more than results in different regimes; benchmark tables show the assumption on every row whenever one is made.
 
 ## Completeness claims
 
@@ -62,6 +73,8 @@ No solver in this repository sets `candidates_proven_complete` today, and a solv
 | `corner-contact-relief/1` | `rust.contact_dfs` (relief) | The placements of `corner-contact/1` whose roofs continue the roofs already down: at the corner, and along every edge stretch shared with a placed piece, the two roofs differ in height by no more than the contact noise times the steepest roof gradient (at least the contact noise). Complete, in exact arithmetic, for exact assemblies whose roofs are exactly continuous. The validator allows a roof step of 1.75 mm on the corpus; assemblies that need any of that allowance are not in the set. |
 | `corner-contact-reachable/1` | `cp_sat.placements` (footprint) | The placements of `corner-contact/1` that the search of `rust.contact_dfs` puts down somewhere in its tree, with the listing options the result records. A finite list, built by running that search to its end. It holds every assembly that search finds and, being a subset of `corner-contact/1`, no more. If the listing was cut short by a limit the list is a part of this set and the result is not `exhaustive`. |
 | `corner-contact-relief-reachable/1` | `cp_sat.placements` (relief) | The same, of `corner-contact-relief/1`. |
+| `corner-contact-edge-to-edge/1` | `rust.contact_dfs` (footprint, assuming `edge-to-edge`) | The placements of `corner-contact/1` that put no vertex strictly inside an edge of a placed piece, and no vertex of a placed piece strictly inside one of theirs, by more than the contact noise from either end. Complete, in exact arithmetic, for exact assemblies without a T. |
+| `corner-contact-relief-edge-to-edge/1` | `rust.contact_dfs` (relief, assuming `edge-to-edge`) | The same, of `corner-contact-relief/1`. |
 
 A change to what a candidate set contains gets a new name. A rule that only removes candidates which cannot be part of any assembly in the set (the pruning rules of `rust.contact_dfs`) does not change the set: by the arguments in [algorithms.md](algorithms.md#the-rust-contact-search), and by test, the whole search finds the same assemblies with the rule on or off.
 
@@ -105,6 +118,8 @@ In the relief regime "congruent" and "onto itself" include the roof: two pieces 
 | `rejected_outside` | Of those, refused for reaching outside the target. |
 | `rejected_overlap` | Of the rest, refused for entering a placed piece. |
 | `rejected_roof` | Refused because the roof would not continue a neighbour's: at the corner, before any polygon work, or along a shared edge, after the two checks above. Zero in the footprint regime. |
+| `rejected_junction` | Assuming `edge-to-edge`: refused for meeting a placed piece in a T. Absent without the assumption. |
+| `rejected_wall` | Assuming `edge-to-edge`: refused for taking an edge that no other piece's edge can lie against off the tray. Absent without the assumption. |
 | `pruned_cavity` | Nodes abandoned because a cavity could not be filled: its area is no sum of areas of remaining pieces that fit it, or some remaining piece fits no cavity. |
 | `pruned_closure` | Nodes abandoned because a straight run or a convex corner of the uncovered region could not be closed by the remaining pieces. |
 | `pruned_anchor` | Placements of the anchor piece left out for lying outside its sector of the tray. |
@@ -167,6 +182,8 @@ Every rule the search adds to the prototype's can be switched off, so that its e
 | `closure_pruning` | `true` | Abandon a state with a straight run or a convex corner the remaining pieces cannot close. |
 | `lookahead` | `false` | Count a placement towards a corner only if the state it leads to is not a dead end by the pruning rules that are on. Fewer nodes, usually more states examined. |
 | `order` | `matched-edges` | The order in which a node's placements are tried: `matched-edges` (most whole edges shared with placed pieces first), `generated` (the prototype's order) or `random` (shuffled, from `seed`). It changes which solution comes first and how soon. |
+| `equal_edges` | `true` | Only assuming `edge-to-edge`, an error otherwise: let a piece edge lie against another piece's edge only if the two are equally long and, with roofs, equally high at both ends. |
+| `wall_edges` | `true` | Only assuming `edge-to-edge`, an error otherwise: keep an edge that no other piece's edge can lie against on the tray. |
 
 ### Options of `cp_sat.placements`
 
