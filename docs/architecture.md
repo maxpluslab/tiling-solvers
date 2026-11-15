@@ -9,7 +9,7 @@ The algorithmic background is the [research brief](research-brief.md): problem t
 A solver laboratory, not a single solver. It should be easy to:
 
 - develop and compare several custom Rust algorithms;
-- use established engines such as OR-Tools CP-SAT;
+- use established engines such as OR-Tools CP-SAT, as alternative formulations over the generated candidates;
 - prototype in Python and move the hot parts to Rust;
 - share geometry, candidate generation, input formats, validation and benchmarking across solvers;
 - study puzzle difficulty, ambiguity, uniqueness and the effect of geometric tolerances.
