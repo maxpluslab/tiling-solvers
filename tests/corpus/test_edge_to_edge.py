@@ -12,8 +12,12 @@ exactly what the plain search finds that the independent oracle
 (``support.geometry.is_edge_to_edge``, by twin edges) calls edge to edge; the
 answer key is among it and the validator passes all of it. ``cor1-flat``, whose
 plain search has not been seen to end, is tested apart: everything the assumed
-search returns is valid and edge to edge by the oracle, and the key is among it. The counts are
-relative to the candidates the search generates, in ``f64`` with tolerances.
+search returns is valid and edge to edge by the oracle, and the key is among it.
+``new1-flat`` and ``new2-flat``, whose plain searches take a million nodes, are
+not compared here; their rows of the committed table, which only the full
+command reproduces, record one assembly with and without the assumption. The
+counts are relative to the candidates the search generates, in ``f64`` with
+tolerances.
 """
 
 from pathlib import Path
@@ -50,21 +54,15 @@ ASSEMBLIES = {"rat1-flat": 101, "rat2-flat": 2}
 EDGE_TO_EDGE_ASSEMBLIES = {"cor1-flat": 48}
 # Where a search assuming nothing stops in the committed table (benchmarks/manifests).
 NODE_LIMIT = 1_500_000
-# Whole plain searches of these take tens of seconds.
-SLOW = {"new1-flat", "new2-flat"}
+# Whole plain searches of these are a million nodes each: not run here (support/corpus.py).
+LEFT_OUT = corpus.EXPENSIVE - corpus.UNFINISHED
+CHECKED = [f for f in CORPUS if f not in LEFT_OUT]
 RULES = [
     {"equal_edges": True, "wall_edges": True},
     {"equal_edges": True, "wall_edges": False},
     {"equal_edges": False, "wall_edges": True},
     {"equal_edges": False, "wall_edges": False},
 ]
-
-
-def marked(fixture_ids: list[str]) -> list[Any]:
-    return [
-        pytest.param(f, marks=pytest.mark.slow) if f in SLOW else pytest.param(f)
-        for f in fixture_ids
-    ]
 
 
 def instance_of(fixture_id: str) -> PuzzleInstance:
@@ -91,7 +89,11 @@ def test_every_answer_key_meets_edge_to_edge() -> None:
         assert geometry.is_edge_to_edge(world, target, TWIN_MM), fixture_id
 
 
-@pytest.mark.parametrize("fixture_id", marked(CORPUS))
+def test_only_the_million_node_footprints_are_left_out() -> None:
+    assert sorted(set(EVERY) - set(CHECKED)) == ["cor1-flat", "new1-flat", "new2-flat"]
+
+
+@pytest.mark.parametrize("fixture_id", CHECKED)
 def test_the_assumption_finds_exactly_the_edge_to_edge_assemblies(fixture_id: str) -> None:
     instance = instance_of(fixture_id)
     plain = solve(instance, SolverConfig(DFS, mode=instance.regime, max_solutions=None))
@@ -162,29 +164,59 @@ def test_the_footprints_with_several_assemblies_have_one_that_meets_edge_to_edge
 # --- the committed table and the edge graph -----------------------------------------------
 
 
-@pytest.mark.slow
 def test_one_command_reproduces_the_edge_to_edge_table(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    """The committed table's rows, but for the footprints whose plain search is expensive.
+
+    ``maxplus-bench run benchmarks/manifests/edge_to_edge.toml --no-times``
+    reproduces the whole table; this runs the same manifest ``--only`` on the
+    rest and compares those rows exactly.
+    """
+    cheap = [f for f in EVERY if f not in corpus.EXPENSIVE]
+    committed = (RESULTS / "edge_to_edge.md").read_text(encoding="utf-8")
     out, table = tmp_path / "edge_to_edge.jsonl", tmp_path / "edge_to_edge.md"
     arguments = ["run", str(MANIFESTS / "edge_to_edge.toml"), "--fixtures", str(corpus.FIXTURES)]
-    code = main([*arguments, "--out", str(out), "--table", str(table), "--no-times", "--quiet"])
-    assert code == 0, "some run could not be made"
+    options = ["--out", str(out), "--table", str(table), "--no-times", "--quiet"]
+    assert main([*arguments, *options, "--only", *cheap]) == 0, "some run could not be made"
     produced = table.read_text(encoding="utf-8")
     assert capsys.readouterr().out == produced
-    assert produced == (RESULTS / "edge_to_edge.md").read_text(encoding="utf-8")
+    assert produced == corpus.table_rows(committed, cheap)
     records = benchmark.read(out)
-    # Each corpus puzzle once assuming nothing, and four times assuming edge to edge.
-    assert len(records) == 5 * len(EVERY)
+    # Each puzzle once assuming nothing, and four times assuming edge to edge.
+    assert len(records) == 5 * len(cheap)
     for record in records:
         fixture, assumed = record["fixture"], bool(record["config"]["assumptions"])
-        if fixture in corpus.UNFINISHED and not assumed:
-            assert record["status"] == "interrupted" and not record["exhaustive"], fixture
-            assert record["metrics"]["nodes"] == NODE_LIMIT
-            continue
         assert record["status"] == "solved" and record["exhaustive"], fixture
         expected = (EDGE_TO_EDGE_ASSEMBLIES if assumed else ASSEMBLIES).get(fixture, 1)
         assert record["validSolutions"] == record["solutions"] == expected, fixture
+
+
+def test_the_rows_the_suite_does_not_reproduce_say_what_the_documents_say() -> None:
+    """What the committed table claims for the expensive footprints, read from it.
+
+    Not a reproduction: only the full command checks these numbers against a
+    search. This holds the table to the claims made of it in the documents.
+    """
+    rows = [
+        row
+        for row in corpus.table((RESULTS / "edge_to_edge.md").read_text(encoding="utf-8"))
+        if row["Fixture"] in corpus.EXPENSIVE
+    ]
+    assert len(rows) == 5 * len(corpus.EXPENSIVE)
+    for row in rows:
+        fixture, assumed = row["Fixture"], row["assumes"] == "edge-to-edge"
+        if fixture in corpus.UNFINISHED and not assumed:
+            assert (row["Status"], row["Whole search"], row["Solutions"]) == (
+                "interrupted",
+                "no",
+                "0",
+            )
+            assert int(row["Nodes"].replace(" ", "")) == NODE_LIMIT
+            continue
+        assert (row["Status"], row["Whole search"]) == ("solved", "yes"), fixture
+        expected = (EDGE_TO_EDGE_ASSEMBLIES if assumed else ASSEMBLIES).get(fixture, 1)
+        assert row["Solutions"] == row["Valid"] == str(expected), fixture
 
 
 @pytest.mark.parametrize("fixture_id", EVERY)

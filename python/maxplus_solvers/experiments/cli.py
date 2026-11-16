@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from maxplus_solvers.experiments import benchmark, proxies, report
-from maxplus_solvers.experiments.manifest import ManifestError, load
+from maxplus_solvers.experiments.manifest import ManifestError, load, restrict
 from maxplus_solvers.io.instance import load_instance
 
 DEFAULT_FIXTURES = Path("benchmarks") / "fixtures"
@@ -37,6 +37,12 @@ def _parser() -> argparse.ArgumentParser:
         "--no-times",
         action="store_true",
         help="leave out times and other machine-dependent columns: the reproducible table",
+    )
+    run.add_argument(
+        "--only",
+        nargs="+",
+        metavar="FIXTURE",
+        help="run only these of the manifest's fixtures: the full table's rows for them",
     )
     run.add_argument("--quiet", action="store_true", help="do not report each run as it ends")
 
@@ -159,6 +165,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         if args.command == "run":
             manifest = load(args.manifest)
+            if args.only is not None:
+                manifest = restrict(manifest, args.only, benchmark.read_index(args.fixtures))
             out = args.out or DEFAULT_RESULTS / f"{manifest.name}.jsonl"
             out.parent.mkdir(parents=True, exist_ok=True)
             records = benchmark.run(

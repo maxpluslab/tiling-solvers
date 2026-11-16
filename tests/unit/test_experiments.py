@@ -15,7 +15,14 @@ import pytest
 from maxplus_solvers import PuzzleInstance, SolverConfig, solve
 from maxplus_solvers.experiments import benchmark, proxies, report
 from maxplus_solvers.experiments.cli import main
-from maxplus_solvers.experiments.manifest import ManifestError, expand, fixture_ids, load, parse
+from maxplus_solvers.experiments.manifest import (
+    ManifestError,
+    expand,
+    fixture_ids,
+    load,
+    parse,
+    restrict,
+)
 from support import documents
 
 INDEX = {
@@ -170,6 +177,38 @@ def test_a_fixture_nobody_has_is_refused() -> None:
     block = {"solver": "rust.contact_dfs", "fixtures": ["nowhere"]}
     with pytest.raises(ManifestError, match="'nowhere' is not a fixture id"):
         fixture_ids(parse(manifest_of(runs=[block])), INDEX)
+
+
+def test_restricting_keeps_every_run_on_the_fixtures_kept() -> None:
+    """By hand: the manifest above names four runs; on ``toy`` alone, the last two."""
+    manifest = parse(
+        manifest_of(
+            fixtures=["all"],
+            runs=[
+                {"solver": "rust.contact_dfs"},
+                {"solver": "python.contact_dfs", "fixtures": ["toy"]},
+            ],
+        )
+    )
+    kept = restrict(manifest, ["toy"], INDEX)
+    assert [(r.solver, r.fixture) for r in expand(kept, fixture_ids(kept, INDEX))] == [
+        ("rust.contact_dfs", "toy"),
+        ("python.contact_dfs", "toy"),
+    ]
+    # A block kept to fixtures that are all cut runs nothing.
+    kept = restrict(manifest, ["strips"], INDEX)
+    assert [(r.solver, r.fixture) for r in expand(kept, fixture_ids(kept, INDEX))] == [
+        ("rust.contact_dfs", "strips"),
+    ]
+
+
+def test_restricting_to_a_fixture_the_manifest_does_not_name_is_refused() -> None:
+    manifest = parse(manifest_of(fixtures=["corpus"]))
+    # "toy" is in the index but is synthetic, so the manifest does not name it.
+    with pytest.raises(ManifestError, match="'toy' not among the fixtures of manifest 'hand'"):
+        restrict(manifest, ["strips", "toy"], INDEX)
+    with pytest.raises(ManifestError, match="empty list"):
+        restrict(manifest, [], INDEX)
 
 
 def test_a_manifest_file_that_is_not_toml_says_where(tmp_path: Path) -> None:
@@ -538,6 +577,29 @@ def test_the_command_runs_a_manifest_and_prints_its_table(
 
     assert main(["table", str(out), "--no-times"]) == 0
     assert capsys.readouterr().out == table.read_text(encoding="utf-8")
+
+
+def test_the_command_can_run_part_of_a_manifest(
+    fixtures_dir: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """``--only`` gives the full table's rows for the fixtures named, and nothing else."""
+    manifest = write_manifest(
+        tmp_path, 'name = "hand"\nfixtures = ["corpus"]\n[[runs]]\nsolver = "rust.contact_dfs"\n'
+    )
+    arguments = ["run", str(manifest), "--fixtures", str(fixtures_dir), "--no-times", "--quiet"]
+    assert main([*arguments, "--out", str(tmp_path / "all.jsonl")]) == 0
+    full = capsys.readouterr().out.splitlines()
+    assert main([*arguments, "--out", str(tmp_path / "part.jsonl"), "--only", "strips"]) == 0
+    part = capsys.readouterr().out.splitlines()
+    # A header, a rule and two rows; the first row is the flat strips'.
+    assert len(full) == 4
+    assert part == full[:3]
+    assert part[2].startswith("| `strips` |")
+
+    with pytest.raises(SystemExit) as stopped:
+        main([*arguments, "--out", str(tmp_path / "x.jsonl"), "--only", "toy"])
+    assert stopped.value.code == 2
+    assert "'toy' not among the fixtures" in capsys.readouterr().err
 
 
 def test_the_command_fails_when_a_run_could_not_be_made(

@@ -5,7 +5,8 @@ The two searches that would not end, cor1-flat's, stop at a node limit well abov
 any other corpus puzzle needs (new1-flat: 1 064 878), so that where they stop does not
 depend on the machine.
 `maxplus-bench run benchmarks/manifests/corpus.toml --no-times` reproduces
-benchmarks/results/corpus.md; a test holds the two together.
+benchmarks/results/corpus.md; a test holds the two together on every fixture but the
+expensive footprints (tests/support/corpus.py), whose rows only this command checks.
 """
 fixtures = ["corpus"]
 

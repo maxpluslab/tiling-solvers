@@ -4,7 +4,10 @@
 registered solver on every corpus puzzle and prints the table committed as
 ``benchmarks/results/corpus.md``. The table holds statuses, solution counts
 and search counts, which a deterministic solver reproduces exactly; times and
-CP-SAT's own counts belong to a machine and are not in it.
+CP-SAT's own counts belong to a machine and are not in it. The test runs the
+same command ``--only`` on the fixtures that are cheap to search, and compares
+their rows; the rows of the expensive footprints (``support/corpus.py``) are
+checked by running the full command by hand.
 
 The other tests here hold the committed manifests to what the runner accepts,
 and the difficulty proxies to what can be said about them without a search.
@@ -41,50 +44,72 @@ def by(records: list[dict[str, Any]], solver: str) -> dict[str, dict[str, Any]]:
 # --- the exit criterion -------------------------------------------------------------------
 
 
-@pytest.mark.slow
 def test_one_command_reproduces_the_corpus_table(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    """The committed table's rows, but for the footprints that are expensive to search.
+
+    ``maxplus-bench run benchmarks/manifests/corpus.toml --no-times``
+    reproduces the whole table; this runs the same manifest ``--only`` on the
+    rest and compares those rows exactly. Left out are the three footprints of a
+    million nodes, and ``rat2-flat``, where CP-SAT takes over a minute.
+    """
+    cheap = [f for f in CORPUS if f not in corpus.EXPENSIVE_FOR_CP_SAT]
+    committed = (RESULTS / "corpus.md").read_text(encoding="utf-8")
     out, table = tmp_path / "corpus.jsonl", tmp_path / "corpus.md"
     arguments = ["run", str(MANIFESTS / "corpus.toml"), "--fixtures", str(corpus.FIXTURES)]
-    code = main([*arguments, "--out", str(out), "--table", str(table), "--no-times", "--quiet"])
-    assert code == 0, "some run could not be made"
+    options = ["--out", str(out), "--table", str(table), "--no-times", "--quiet"]
+    assert main([*arguments, *options, "--only", *cheap]) == 0, "some run could not be made"
     produced = table.read_text(encoding="utf-8")
     assert capsys.readouterr().out == produced
-    assert produced == (RESULTS / "corpus.md").read_text(encoding="utf-8")
+    assert produced == corpus.table_rows(committed, cheap)
 
     records = benchmark.read(out)
-    # The whole corpus, across all registered solvers.
+    # Those fixtures, across all registered solvers.
     assert {record["solver"] for record in records} == set(solvers.available())
-    assert sorted(by(records, "rust.contact_dfs")) == sorted(CORPUS)
-    assert sorted(by(records, "cp_sat.placements")) == sorted(CORPUS)
-    # The prototype's list was fixed before cor1 joined the corpus; it would stop there too.
-    assert sorted(by(records, "python.contact_dfs")) == sorted(set(FLAT) - corpus.UNFINISHED)
+    assert sorted(by(records, "rust.contact_dfs")) == sorted(cheap)
+    assert sorted(by(records, "cp_sat.placements")) == sorted(cheap)
+    assert sorted(by(records, "python.contact_dfs")) == sorted(set(FLAT) & set(cheap))
     for record in records:
-        # Whatever was returned passes the validator.
-        assert record["status"] in ("solved", "interrupted"), record["fixture"]
+        # Every search here ends, and whatever was returned passes the validator.
+        assert record["status"] == "solved" and record["exhaustive"], record["fixture"]
         assert record["validSolutions"] == record["solutions"], record["fixture"]
         # Enough to run it again.
         assert record["solverVersion"]
         assert record["config"]["tolerances"]["contactNoiseMm"] > 0
         assert record["config"]["seed"] == 0
         assert record["instanceHash"] == HASHES[record["fixture"]]
+
+
+def test_the_rows_the_suite_does_not_reproduce_say_what_the_documents_say() -> None:
+    """What the committed table claims of the whole corpus, read from it.
+
+    Not a reproduction: only the full command checks the expensive rows against
+    a search. This holds the table to what the manifest and the documents say
+    of it.
+    """
+    rows = corpus.table((RESULTS / "corpus.md").read_text(encoding="utf-8"))
+    nodes = {(r["Solver"], r["Fixture"]): int(r["Nodes"].replace(" ", "")) for r in rows}
+    for row in rows:
+        assert row["Solutions"] == row["Valid"], (row["Solver"], row["Fixture"])
     # The two production solvers finish everything but cor1-flat, stopped at the node
     # limit before it found anything; the prototype is stopped on the largest.
-    for solver in ("rust.contact_dfs", "cp_sat.placements"):
-        results = by(records, solver)
-        unfinished = sorted(f for f, record in results.items() if not record["exhaustive"])
+    for solver in ("`rust.contact_dfs`", "`cp_sat.placements`"):
+        mine = [row for row in rows if row["Solver"] == solver]
+        assert sorted(row["Fixture"] for row in mine) == sorted(CORPUS)
+        unfinished = sorted(row["Fixture"] for row in mine if row["Whole search"] == "no")
         assert unfinished == sorted(corpus.UNFINISHED), solver
         for fixture in unfinished:
-            assert results[fixture]["status"] == "interrupted"
-            assert results[fixture]["metrics"]["nodes"] == NODE_LIMIT
+            assert nodes[solver, fixture] == NODE_LIMIT
         # The limit is far above what any finished search needed.
-        finished = [r["metrics"]["nodes"] for f, r in results.items() if f not in unfinished]
+        finished = [nodes[solver, row["Fixture"]] for row in mine if row["Whole search"] == "yes"]
         assert max(finished) < NODE_LIMIT / 1.4
-    prototype = by(records, "python.contact_dfs")
-    stopped = [fixture for fixture, record in prototype.items() if not record["exhaustive"]]
-    assert sorted(stopped) == ["new1-flat", "new2-flat", "rat2-flat"]
-    assert all(prototype[fixture]["metrics"]["nodes"] == 50_000 for fixture in stopped)
+    prototype = [row for row in rows if row["Solver"] == "`python.contact_dfs`"]
+    # The prototype's list was fixed before cor1 joined the corpus; it would stop there too.
+    assert sorted(row["Fixture"] for row in prototype) == sorted(set(FLAT) - corpus.UNFINISHED)
+    stopped = sorted(row["Fixture"] for row in prototype if row["Whole search"] == "no")
+    assert stopped == ["new1-flat", "new2-flat", "rat2-flat"]
+    assert all(nodes["`python.contact_dfs`", fixture] == 50_000 for fixture in stopped)
 
 
 def test_the_committed_table_is_the_reproducible_kind() -> None:

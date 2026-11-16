@@ -204,6 +204,14 @@ Done, with these decisions:
 - `cor1` joined the corpus in this phase, re-imported from Tropical Puzzle Lab's main branch, so the corpus is 18 fixtures. `cor1-flat` is the first corpus puzzle whose plain search has not been seen to end. Tests that compare against the end of that search leave it out by name (`support.corpus.UNFINISHED`) and test it apart; the corpus and edge-to-edge manifests stop a search that assumes nothing at 1 500 000 nodes, well above the 1 064 878 of `new1-flat`, so where it stops does not depend on the machine. The exit criteria of phases 5 and 6 cover the corpus minus that one fixture.
 - Findings, in [algorithms.md](algorithms.md#assuming-the-pieces-meet-edge-to-edge): the 16-piece footprints drop from a million nodes to about fifty; footprint and relief costs nearly coincide; only the answer of `rat1-flat` and `rat2-flat` is edge to edge.
 
+## Later change to the exit criteria: no million-node searches in the suite
+
+2026-11-15. The `slow` tests, nine whole searches run again and again, had grown to thirteen minutes, too long to be run. The exit criteria of phases 5 to 8 are narrowed rather than run less often:
+
+- `support.corpus.EXPENSIVE` names the footprints whose whole search costs 909 750 nodes or more: `cor1-flat`, `new1-flat` and `new2-flat`. The exit criteria of phases 5 and 8 cover the corpus minus these; phase 6's also leaves out `rat2-flat`, where CP-SAT takes over a minute.
+- The exit criterion of phase 7 and the table test of phase 8 run their manifest with `maxplus-bench run --only` on the other fixtures and compare those rows of the committed table exactly. The rows they leave out are read, not reproduced: a test holds them to what the documents claim of them (where `cor1-flat` stops, the margin under the node limit, one assembly where one is claimed).
+- What is given up: no automated test searches `new1-flat` and `new2-flat` to the end. Their results stand in the committed tables, checked against a search only when the full command is run by hand. The `slow` marker is gone.
+
 ## Backlog
 
 Unordered, to be scheduled once phase 7 shows where the interesting questions are:

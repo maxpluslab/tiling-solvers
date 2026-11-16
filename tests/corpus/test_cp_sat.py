@@ -5,7 +5,9 @@ On every fixture, in its own regime, ``cp_sat.placements`` and
 are compared polygon by polygon with the test oracle. Both exhaust on every
 fixture but ``cor1-flat``, added after the phase closed, whose search has not
 been seen to end; CP-SAT lists its placements with that search, so it is left
-out by name.
+out by name. So are ``new1-flat``, ``new2-flat`` and ``rat2-flat``, which both
+exhaust but at a cost of minutes: that they agree there is recorded in the
+committed corpus table, which only the full command reproduces.
 
 The agreement is less than it sounds and more than nothing. CP-SAT chooses
 among the placements a run of the same search listed, so it cannot find an
@@ -35,18 +37,13 @@ FLAT = [f for f in corpus.fixture_ids(kind="corpus", regime="footprint") if f in
 RELIEF = corpus.fixture_ids(kind="corpus", regime="relief")
 SYNTHETIC = corpus.fixture_ids(kind="synthetic")
 SMALL = [f for f in FLAT if PIECES[f] <= 11]
-# Listing the placements of these is a whole search of tens of seconds, and the
-# model has thousands of them.
-SLOW = {"new1-flat", "new2-flat", "rat2-flat"}
+# Listing the placements of these is a whole search of up to a million nodes, and the
+# model has thousands of them: not run here (support/corpus.py). Their rows of the
+# committed corpus table are where the two solvers' agreement on them is recorded.
+LEFT_OUT = corpus.EXPENSIVE_FOR_CP_SAT
+CHECKED = [f for f in CORPUS if f not in LEFT_OUT]
 # As in test_rust_contact_dfs.py. Not in this table: one.
-ASSEMBLIES = {"rat1-flat": 101, "rat2-flat": 2}
-
-
-def marked(fixture_ids: list[str]) -> list[Any]:
-    return [
-        pytest.param(f, marks=pytest.mark.slow) if f in SLOW else pytest.param(f)
-        for f in fixture_ids
-    ]
+ASSEMBLIES = {"rat1-flat": 101}
 
 
 def instance_of(fixture_id: str) -> PuzzleInstance:
@@ -86,13 +83,15 @@ def same_up_to_turns(instance: PuzzleInstance, a: list[Any], b: list[Any]) -> bo
 def test_the_exit_criterion_covers_every_fixture() -> None:
     assert len(EVERY) == 18 and len(CORPUS) == 17 and len(SYNTHETIC) == 4
     assert sorted(set(EVERY) - set(CORPUS)) == ["cor1-flat"]
-    assert set(FLAT) >= SLOW | set(ASSEMBLIES)
+    # Only footprints are left out, only those named, and all of the relief puzzles stay.
+    assert sorted(set(CORPUS) - set(CHECKED)) == ["new1-flat", "new2-flat", "rat2-flat"]
+    assert set(CHECKED) >= set(RELIEF) | set(ASSEMBLIES)
 
 
 # --- the exit criterion -------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("fixture_id", marked(CORPUS + SYNTHETIC))
+@pytest.mark.parametrize("fixture_id", CHECKED + SYNTHETIC)
 def test_cp_sat_and_the_search_return_the_same_assemblies(fixture_id: str) -> None:
     instance = instance_of(fixture_id)
     chosen = solve(instance, whole(instance.regime), validate=True)
@@ -182,7 +181,7 @@ def test_without_the_anchor_the_turns_are_found_and_recognised() -> None:
 # --- what the model looks like ------------------------------------------------------------
 
 
-@pytest.mark.parametrize("fixture_id", [f for f in CORPUS if f not in SLOW])
+@pytest.mark.parametrize("fixture_id", CHECKED)
 def test_the_list_is_far_shorter_than_the_search_that_made_it(fixture_id: str) -> None:
     """A finding: the search puts the same few placements down again and again.
 
