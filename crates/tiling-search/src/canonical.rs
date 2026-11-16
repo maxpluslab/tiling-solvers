@@ -49,6 +49,13 @@ pub struct Placement {
     pub turn: f64,
 }
 
+/// The canonical form of an assembly, kept so that later assemblies can be
+/// compared with it without working it out again. [`Symmetry::compare_forms`]
+/// orders forms; under the gap argument above, that order is total on forms
+/// that differ, so a sorted list of forms can be searched by bisection.
+#[derive(Debug, Clone)]
+pub struct Form(Vec<Seat>);
+
 /// The symmetries of one puzzle: of its tray, and of and among its pieces.
 #[derive(Debug, Clone)]
 pub struct Symmetry {
@@ -243,11 +250,28 @@ impl Symmetry {
     /// every assembly that differs from this one only by exchanging congruent
     /// pieces, turning pieces onto themselves, or turning the tray.
     pub fn canonical(&self, poses: &[Pose]) -> Vec<Pose> {
-        self.canonical_seats(poses)
+        self.poses(&self.form(poses))
+    }
+
+    /// The canonical form of an assembly, for comparing with others.
+    pub fn form(&self, poses: &[Pose]) -> Form {
+        Form(self.canonical_seats(poses))
+    }
+
+    /// The poses a form stands for: [`Symmetry::canonical`] of any assembly with this form.
+    pub fn poses(&self, form: &Form) -> Vec<Pose> {
+        form.0
             .iter()
             .enumerate()
             .map(|(piece, seat)| self.pose(piece, seat))
             .collect()
+    }
+
+    /// The tolerant order on forms: `Equal` exactly when [`Symmetry::same`] would say so.
+    pub fn compare_forms(&self, a: &Form, b: &Form) -> Ordering {
+        a.0.len()
+            .cmp(&b.0.len())
+            .then_with(|| self.compare_all(&a.0, &b.0))
     }
 
     /// Whether two assemblies have the same canonical form.
@@ -302,6 +326,33 @@ mod tests {
             vec![[0.0, 0.0], [4.0, 0.0], [4.0, 4.0], [0.0, 4.0]],
             vec![rectangle(1.0, 4.0), rectangle(3.0, 4.0)],
         )
+    }
+
+    #[test]
+    fn forms_compare_equal_exactly_when_assemblies_are_the_same() {
+        let (tray, pieces) = strips();
+        let symmetry = symmetry_of(&tray, &pieces);
+        // Strip on the left, and the same turned a quarter with the tray: one assembly.
+        let left = [at(0.5, 2.0, 0.0), at(2.5, 2.0, 0.0)];
+        let bottom = [at(2.0, 0.5, FRAC_PI_2), at(2.0, 2.5, FRAC_PI_2)];
+        // Not a tiling, but a different arrangement: the strip moved 1 mm in.
+        let inside = [at(1.5, 2.0, 0.0), at(2.5, 2.0, 0.0)];
+        let form = |poses: &[Pose]| symmetry.form(poses);
+        assert!(symmetry.compare_forms(&form(&left), &form(&bottom)).is_eq());
+        let (a, b) = (form(&left), form(&inside));
+        assert!(!symmetry.same(&left, &inside));
+        assert!(symmetry.compare_forms(&a, &b).is_ne());
+        // Antisymmetric, so a sorted list of forms can be bisected.
+        assert_eq!(
+            symmetry.compare_forms(&a, &b),
+            symmetry.compare_forms(&b, &a).reverse()
+        );
+        // The poses of a form are the canonical form of the assembly.
+        let canonical = symmetry.canonical(&bottom);
+        for (p, q) in symmetry.poses(&form(&bottom)).iter().zip(&canonical) {
+            assert!((p.x - q.x).abs() <= 1e-12 && (p.y - q.y).abs() <= 1e-12);
+            assert!((p.theta - q.theta).abs() <= 1e-12);
+        }
     }
 
     #[test]
