@@ -6,6 +6,7 @@ actually on disk, without going through the package's loaders.
 
 import json
 import os
+from collections.abc import Collection
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +22,15 @@ SOURCE_ENV = "TROPICAL_PUZZLE_LAB"
 # cor1-flat was stopped at 3 000 000 nodes. Tests that compare against the end of
 # that search leave these out by name, and test them separately for what can be said.
 UNFINISHED = frozenset({"cor1-flat"})
+
+# Corpus fixtures whose whole search, assuming nothing, the test suite does not run:
+# 909 750 nodes and more (cor1-flat stops at the corpus manifest's limit of 1 500 000),
+# against at most 128 230 for the rest (benchmarks/results/corpus.md). Run again and
+# again across the tests they took over ten minutes. The suite reproduces the other rows
+# of the committed tables; these rows are checked by running the full command by hand.
+EXPENSIVE = frozenset({"cor1-flat", "new1-flat", "new2-flat"})
+# CP-SAT on rat2-flat: whole, but 80 s of choosing among its listed placements.
+EXPENSIVE_FOR_CP_SAT = EXPENSIVE | {"rat2-flat"}
 
 
 def read_json(path: Path) -> Any:
@@ -46,6 +56,27 @@ def fixture(fixture_id: str) -> dict[str, Any]:
 
 def key(fixture_id: str) -> dict[str, Any]:
     return read_json(KEYS / f"{fixture_id}.json")
+
+
+def _cells(line: str) -> list[str]:
+    return [cell.strip() for cell in line.strip().strip("|").split("|")]
+
+
+def table(text: str) -> list[dict[str, str]]:
+    """The rows of a committed Markdown results table, by column title, ``Fixture`` bare."""
+    lines = text.splitlines()
+    header = _cells(lines[0])
+    rows = [dict(zip(header, _cells(line), strict=True)) for line in lines[2:]]
+    for row in rows:
+        row["Fixture"] = row["Fixture"].strip("`")
+    return rows
+
+
+def table_rows(text: str, fixtures: Collection[str]) -> str:
+    """A committed Markdown results table cut down to its header and these fixtures' rows."""
+    lines = text.splitlines(keepends=True)
+    kept = [line for line in lines[2:] if _cells(line)[0].strip("`") in fixtures]
+    return "".join(lines[:2] + kept)
 
 
 def schema() -> dict[str, Any]:

@@ -30,7 +30,7 @@ runs in the same order every time.
 import itertools
 import tomllib
 from collections.abc import Iterator, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -230,6 +230,22 @@ def fixture_ids(manifest: Manifest, index: Mapping[str, Any]) -> list[str]:
             if name not in known:
                 raise ManifestError(f"runs: {name!r} is not a fixture id")
     return [fixture for fixture in known if fixture in wanted]
+
+
+def restrict(manifest: Manifest, only: Sequence[str], index: Mapping[str, Any]) -> Manifest:
+    """The manifest with its fixtures cut down to ``only``, each of which it must name.
+
+    Every run on those fixtures is kept as it is, so the table of the
+    restricted manifest is the full table's rows for those fixtures.
+    """
+    named = fixture_ids(manifest, index)
+    missing = [fixture for fixture in only if fixture not in named]
+    if missing:
+        listed = ", ".join(repr(fixture) for fixture in missing)
+        raise ManifestError(f"only: {listed} not among the fixtures of manifest {manifest.name!r}")
+    if not only:
+        raise ManifestError("only: an empty list leaves nothing to run")
+    return replace(manifest, fixtures=tuple(only))
 
 
 def expand(manifest: Manifest, fixtures: Sequence[str]) -> Iterator[Run]:

@@ -3,7 +3,9 @@
 Each fixture is searched to the end in its own regime. That was all 16 when the
 phase closed; ``cor1``, added since, is searched to the end with its roofs and
 not without them, and ``cor1-flat`` is tested for what an unfinished search can
-say. Every assembly returned
+say. ``new1-flat`` and ``new2-flat``, a million nodes each, are no longer
+searched here: their rows of the committed corpus table, which only the full
+command reproduces, record that they end with the answer. Every assembly returned
 passes the independent validator, the answer key is among them, and the times
 to the first solution and to the end of the search are reported separately. On
 the fixtures the Python prototype can finish, the two solvers find the same
@@ -44,21 +46,15 @@ RELIEF = corpus.fixture_ids(kind="corpus", regime="relief")
 SYNTHETIC = corpus.fixture_ids(kind="synthetic")
 # What the prototype finishes in seconds: the footprints of up to 11 pieces.
 SMALL = [f for f in FLAT if PIECES[f] <= 11]
-# Whole searches of these take tens of seconds.
-SLOW = {"new1-flat", "new2-flat"}
+# Whole searches of these are a million nodes each: not run here (support/corpus.py).
+LEFT_OUT = corpus.EXPENSIVE - corpus.UNFINISHED
+CHECKED = [f for f in CORPUS if f not in LEFT_OUT]
 # Relief puzzles built to be hard for this search (cor1: level creases at shared heights).
 HARD_RELIEF = {"cor1"}
 
 # Assemblies found by the whole search, up to turning the tray. Not in this table: one.
 # rat1-flat's 101 is the prototype's 404 in four orientations each (phase 4).
 ASSEMBLIES = {"rat1-flat": 101, "rat2-flat": 2}
-
-
-def marked(fixture_ids: list[str]) -> list[Any]:
-    return [
-        pytest.param(f, marks=pytest.mark.slow) if f in SLOW else pytest.param(f)
-        for f in fixture_ids
-    ]
 
 
 def instance_of(fixture_id: str) -> PuzzleInstance:
@@ -102,13 +98,14 @@ def test_the_exit_criterion_covers_the_whole_corpus() -> None:
     assert sorted(set(EVERY) - set(CORPUS)) == sorted(corpus.UNFINISHED) == ["cor1-flat"]
     assert set(RELIEF) >= HARD_RELIEF
     assert sorted(SMALL) == ["new3-flat", "new4-flat", "new5-flat", "rat1-flat", "rev2-flat"]
-    assert set(FLAT) >= SLOW | set(ASSEMBLIES)
+    assert sorted(LEFT_OUT) == ["new1-flat", "new2-flat"]
+    assert set(CHECKED) >= set(RELIEF) | set(ASSEMBLIES)
 
 
 # --- the exit criterion -------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("fixture_id", marked(CORPUS))
+@pytest.mark.parametrize("fixture_id", CHECKED)
 def test_every_fixture_is_solved_and_validated_in_its_own_regime(fixture_id: str) -> None:
     instance = instance_of(fixture_id)
     result = solve(instance, whole(instance.regime), validate=True)
@@ -145,7 +142,7 @@ def test_every_fixture_is_solved_and_validated_in_its_own_regime(fixture_id: str
     assert metrics["exhausted_s"] == metrics["wall_time_s"]
 
 
-@pytest.mark.parametrize("fixture_id", [f for f in CORPUS if f not in SLOW])
+@pytest.mark.parametrize("fixture_id", CHECKED)
 def test_the_first_solution_is_reported_before_the_search_is_finished(fixture_id: str) -> None:
     """Stopped at its first solution, the search claims a solution and nothing more."""
     instance = instance_of(fixture_id)

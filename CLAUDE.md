@@ -16,7 +16,6 @@ uv run pytest                             # all Python tests
 uv run pytest tests/unit/test_native.py::test_version_matches_the_package
 uv run pytest tests/corpus                # every committed fixture and its answer key
 uv run pytest tests/corpus/test_native_agrees_with_validator.py   # Rust geometry against the validator
-uv run pytest -m "not slow"               # without the whole searches that take tens of seconds
 uv run pytest -m "not source"             # without the tropical-puzzle-lab checkout
 HYPOTHESIS_PROFILE=ci uv run pytest       # the derandomized, larger property runs CI uses
 uv run ruff check && uv run ruff format --check
@@ -94,7 +93,7 @@ Rules:
 - **Search rules are switches, and the measurement is the product.** The question is what makes a puzzle hard and what helps, not how fast a solver is. A pruning rule, an ordering or a symmetry reduction added to a solver is an option that can be turned off, is tested not to change what the whole search finds, and gets its row in the ablation table of `docs/algorithms.md`. A rule that costs more than it saves stays, switched off, with its numbers.
 - **Experiments are callers.** `experiments/` goes through `api.solve` like any user, and nothing outside it imports it. Only `experiments/plotting.py` imports matplotlib; running a manifest needs no plotting stack.
 - **A committed table has no times.** `benchmarks/results/*.md` are written with `--no-times`: statuses and counts, which a deterministic solver reproduces exactly and a test compares. Times, CP-SAT's own counts and the `.jsonl` records belong to a machine and are not committed. When a solver change moves a count, regenerate the table with the command and say why in the commit.
-- **Slow tests still run.** The `slow` marker is for deselecting locally (`-m "not slow"`); CI runs everything.
+- **The suite does not run million-node searches.** The footprints in `corpus.EXPENSIVE` (`tests/support/corpus.py`: `cor1-flat`, `new1-flat`, `new2-flat`) are left out of the per-fixture tests, and the table tests reproduce every other row with `maxplus-bench run --only`. Their rows are checked against a search only by running the full command, so a solver change that could move them means running it by hand. There is no `slow` marker; a test that needs one is a test to make smaller.
 - **Completeness and uniqueness are explicit claims.** A result says whether the search was exhaustive and over which candidate set. "No solution found" and CP-SAT `INFEASIBLE` are relative to the candidates generated unless completeness is proven.
 - **Layering is one-way:** core ← geometry ← search ← py. Python reaches Rust only through `_native`.
 - **Production solvers cross the Python/Rust boundary once per solve.** Prototypes may call individual geometry primitives; a Rust solver receives the instance and runs to completion. `cp_sat.placements` makes its one call for the list of placements and their conflicts; everything it then needs, down to which placement a tray rotation turns each into, is in that answer.
