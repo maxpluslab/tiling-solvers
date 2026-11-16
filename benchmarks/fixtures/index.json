@@ -2,15 +2,24 @@
   "formatVersion": 1,
   "source": {
     "repository": "https://github.com/maxpluslab/tropical-puzzle-lab",
-    "commit": "b1a17926b6cb32eacfb9f24a4e3ac36241e73f7c"
+    "commit": "cfe2c8be097132aa378b2cf397b93524fb869fe1"
   },
   "sanitizerVersion": 1,
   "sourceDifficulty": {
-    "method": "leinster-cobbold-intrinsic-volumes",
-    "u": 10.0,
-    "q": 2.0,
-    "direction": "lower-diversity-is-harder",
-    "thresholds": [0.25, 0.3, 0.45, 0.62]
+    "method": "search-effort-log-nodes",
+    "solver": {
+      "id": "rust.contact_dfs",
+      "version": "0.1.0",
+      "repository": "https://github.com/maxpluslab/tiling-solvers",
+      "commit": "2c2cd7c5d491e1f454d429435d40b1e635ab256a",
+      "nodeLimit": 1500000
+    },
+    "thresholds": [2.0, 3.0, 4.0, 5.5],
+    "diversity": {
+      "method": "leinster-cobbold-intrinsic-volumes",
+      "u": 10.0,
+      "q": 2.0
+    }
   },
   "fixtures": [
     {
@@ -18,12 +27,15 @@
       "kind": "corpus",
       "regime": "relief",
       "pieceCount": 27,
-      "instanceHash": "026f6a52f04e26483d652f366c471c142c75244b7e203dedefdd281098beadff",
+      "instanceHash": "d7db7ec43404c993a80075212dc825debff5b264fbcf8fa8b87e72e89bd0662c",
       "construction": "cor1",
       "sourceDifficulty": {
-        "diversity": 3.998651,
-        "x": 0.115333,
-        "rating": 5
+        "rating": 3,
+        "x": 3.184407,
+        "nodes": 1529,
+        "exhaustive": true,
+        "solutions": 1,
+        "diversity": 3.998651
       }
     },
     {
@@ -31,12 +43,15 @@
       "kind": "corpus",
       "regime": "footprint",
       "pieceCount": 27,
-      "instanceHash": "f6faf9abc88d94dedb1b5a5ea5bcf1a66c75e56095785034c623db24e1aeceb0",
+      "instanceHash": "693a018dbc1ebd466e760261c4e9fc190d04436f011a6291fa254d61d494da20",
       "construction": "cor1",
       "sourceDifficulty": {
-        "diversity": 4.09575,
-        "x": 0.119067,
-        "rating": 5
+        "rating": 5,
+        "x": 6.176091,
+        "nodes": 1500000,
+        "exhaustive": false,
+        "solutions": 0,
+        "diversity": 4.09575
       }
     },
     {
@@ -44,12 +59,15 @@
       "kind": "corpus",
       "regime": "relief",
       "pieceCount": 16,
-      "instanceHash": "8f77d45bb31789eaabbb58b51acc1a82686961655370bd64235d27b674c88694",
+      "instanceHash": "f3f11247194bc8ed62792482ca64a1980e282abeb9fec1ef839b6e220ed9be6c",
       "construction": "new1",
       "sourceDifficulty": {
-        "diversity": 5.446444,
-        "x": 0.29643,
-        "rating": 4
+        "rating": 1,
+        "x": 1.832509,
+        "nodes": 68,
+        "exhaustive": true,
+        "solutions": 1,
+        "diversity": 5.446444
       }
     },
     {
@@ -57,12 +75,15 @@
       "kind": "corpus",
       "regime": "footprint",
       "pieceCount": 16,
-      "instanceHash": "e2c6b3360c87150ede3e059afbdf07e2c690e06b60d17c15374363fb4d38915f",
+      "instanceHash": "3b68bf1e0e105e254fdd45dadaa62cca711621f9a730d2489794c299b53260e8",
       "construction": "new1",
       "sourceDifficulty": {
-        "diversity": 6.426513,
-        "x": 0.361768,
-        "rating": 3
+        "rating": 5,
+        "x": 6.0273,
+        "nodes": 1064878,
+        "exhaustive": true,
+        "solutions": 1,
+        "diversity": 6.426513
       }
     },
     {
@@ -70,12 +91,15 @@
       "kind": "corpus",
       "regime": "relief",
       "pieceCount": 16,
-      "instanceHash": "3e241af54d54f34251097f97c88d4c048dac2f4aa92636995f1e58e96fb831c6",
+      "instanceHash": "ceae2892b1d366acf3784aab3bde4272fdacab2da6b20468e7fc5325b53a463e",
       "construction": "new2",
       "sourceDifficulty": {
-        "diversity": 4.496934,
-        "x": 0.233129,
-        "rating": 5
+        "rating": 1,
+        "x": 1.832509,
+        "nodes": 68,
+        "exhaustive": true,
+        "solutions": 1,
+        "diversity": 4.496934
       }
     },
     {
@@ -83,12 +107,15 @@
       "kind": "corpus",
       "regime": "footprint",
       "pieceCount": 16,
-      "instanceHash": "806c33e986132b3e09b3d08dcd455e5dbc79dd57caa73c7056363329a5552569",
+      "instanceHash": "7d16d1a433da1c2fd2a1da8952a1cbd6febf303c422a4b8fb93ffe7e0a0fe73c",
       "construction": "new2",
       "sourceDifficulty": {
-        "diversity": 4.78389,
-        "x": 0.252259,
-        "rating": 4
+        "rating": 5,
+        "x": 5.958922,
+        "nodes": 909750,
+        "exhaustive": true,
+        "solutions": 1,
+        "diversity": 4.78389
       }
     },
     {
@@ -96,12 +123,15 @@
       "kind": "corpus",
       "regime": "relief",
       "pieceCount": 9,
-      "instanceHash": "ffa7dd51d43a0bd68ac3842eecef7b0b3444479c5e1e6f1eded8b8124c79358c",
+      "instanceHash": "fa1f3fbf05c4807a42682d33a9848fa90b61699f3bf0741d0f180a4ae2fc675a",
       "construction": "new3",
       "sourceDifficulty": {
-        "diversity": 5.681002,
-        "x": 0.585125,
-        "rating": 2
+        "rating": 1,
+        "x": 1.643453,
+        "nodes": 44,
+        "exhaustive": true,
+        "solutions": 1,
+        "diversity": 5.681002
       }
     },
     {
@@ -109,12 +139,15 @@
       "kind": "corpus",
       "regime": "footprint",
       "pieceCount": 9,
-      "instanceHash": "0375980860cc4864066b5705a43b295deadecf188ddcb900a867f2204c98d9b2",
+      "instanceHash": "96da3741917645494972765eaf1e0af3553766b9db5ab4d8304ee0837c105b38",
       "construction": "new3",
       "sourceDifficulty": {
-        "diversity": 6.633686,
-        "x": 0.704211,
-        "rating": 1
+        "rating": 3,
+        "x": 3.785615,
+        "nodes": 6104,
+        "exhaustive": true,
+        "solutions": 1,
+        "diversity": 6.633686
       }
     },
     {
@@ -122,12 +155,15 @@
       "kind": "corpus",
       "regime": "relief",
       "pieceCount": 9,
-      "instanceHash": "262293f93491b1cd363f52d0957d362edf45f76e0a18463594034f0051d0354b",
+      "instanceHash": "f7c565210160817404ceaf63beb8e8b645174c8429d75894a813a53c3cd2af00",
       "construction": "new4",
       "sourceDifficulty": {
-        "diversity": 3.500216,
-        "x": 0.312527,
-        "rating": 3
+        "rating": 1,
+        "x": 1.653213,
+        "nodes": 45,
+        "exhaustive": true,
+        "solutions": 1,
+        "diversity": 3.500216
       }
     },
     {
@@ -135,12 +171,15 @@
       "kind": "corpus",
       "regime": "footprint",
       "pieceCount": 9,
-      "instanceHash": "b760c7313023cc5096b8445bf49e0c70863cdc697e4cef6ea8c875786e038952",
+      "instanceHash": "be1f76117815ed4c2b3d3f7e97826daea73c798689b0d70f72ebf3bf9d8a9829",
       "construction": "new4",
       "sourceDifficulty": {
-        "diversity": 3.939849,
-        "x": 0.367481,
-        "rating": 3
+        "rating": 2,
+        "x": 2.70757,
+        "nodes": 510,
+        "exhaustive": true,
+        "solutions": 1,
+        "diversity": 3.939849
       }
     },
     {
@@ -148,12 +187,15 @@
       "kind": "corpus",
       "regime": "relief",
       "pieceCount": 6,
-      "instanceHash": "d972897b43f6db974556e2d37ab9ae9c7cd850ceda56fdba9cdb741083d7dc6a",
+      "instanceHash": "43c648b7900770edc285c9ecc6d8e631e370d7c50bffaa61108bcd138cb08d49",
       "construction": "new5",
       "sourceDifficulty": {
-        "diversity": 4.466807,
-        "x": 0.693361,
-        "rating": 1
+        "rating": 1,
+        "x": 1.414973,
+        "nodes": 26,
+        "exhaustive": true,
+        "solutions": 1,
+        "diversity": 4.466807
       }
     },
     {
@@ -161,12 +203,15 @@
       "kind": "corpus",
       "regime": "footprint",
       "pieceCount": 6,
-      "instanceHash": "08a9a7d6f35079f33abc0b6bf205b800330ea87f76d9b50536be3568080d3bf3",
+      "instanceHash": "c6bbab15d33416d43d35300ad9ee20937445f93438a1cd4befde048ce4fa7bb1",
       "construction": "new5",
       "sourceDifficulty": {
-        "diversity": 4.186563,
-        "x": 0.637313,
-        "rating": 1
+        "rating": 1,
+        "x": 1.954243,
+        "nodes": 90,
+        "exhaustive": true,
+        "solutions": 1,
+        "diversity": 4.186563
       }
     },
     {
@@ -174,12 +219,15 @@
       "kind": "corpus",
       "regime": "relief",
       "pieceCount": 11,
-      "instanceHash": "f895d290552212be413b5e187759a8ec76161cc46bba7fa6cf4ab8b4cb242664",
+      "instanceHash": "b79a18190749853d0a5b50d03b52d558d499140dd86e91e113658c56a19217b8",
       "construction": "rat1",
       "sourceDifficulty": {
-        "diversity": 4.891978,
-        "x": 0.389198,
-        "rating": 3
+        "rating": 1,
+        "x": 1.954243,
+        "nodes": 90,
+        "exhaustive": true,
+        "solutions": 1,
+        "diversity": 4.891978
       }
     },
     {
@@ -187,12 +235,15 @@
       "kind": "corpus",
       "regime": "footprint",
       "pieceCount": 11,
-      "instanceHash": "9b7eeef268cd4e79418c51a2853bc7359aae7346308ebd847c6cfd77a6a6ab26",
+      "instanceHash": "b57c9992f73665a1b6966e3875de691e4c217a3fe6891b1b36a201423a4180d9",
       "construction": "rat1",
       "sourceDifficulty": {
-        "diversity": 4.538006,
-        "x": 0.353801,
-        "rating": 3
+        "rating": 4,
+        "x": 4.241173,
+        "nodes": 17425,
+        "exhaustive": true,
+        "solutions": 101,
+        "diversity": 4.538006
       }
     },
     {
@@ -200,12 +251,15 @@
       "kind": "corpus",
       "regime": "relief",
       "pieceCount": 20,
-      "instanceHash": "b4a9cbd44edc4f9425df0cc11069679078abd8d1b487163d7ba5fbbab8a13741",
+      "instanceHash": "fc22d29e662b8d9dc55e6a20bb36bbaeb04d638bbc76fa8b1a1e79b6d9e06d9b",
       "construction": "rat2",
       "sourceDifficulty": {
-        "diversity": 5.709562,
-        "x": 0.247872,
-        "rating": 5
+        "rating": 1,
+        "x": 1.973128,
+        "nodes": 94,
+        "exhaustive": true,
+        "solutions": 1,
+        "diversity": 5.709562
       }
     },
     {
@@ -213,12 +267,15 @@
       "kind": "corpus",
       "regime": "footprint",
       "pieceCount": 20,
-      "instanceHash": "76df43b7888c5aa0c009afa24e8e9f974e6382bedc282802346f1cd8cd664c73",
+      "instanceHash": "ef6bb1d52337553f2299a4bc72b9e8a71031d9e8b52febb2041b8fc40c9d8201",
       "construction": "rat2",
       "sourceDifficulty": {
-        "diversity": 6.063062,
-        "x": 0.266477,
-        "rating": 4
+        "rating": 4,
+        "x": 5.10799,
+        "nodes": 128230,
+        "exhaustive": true,
+        "solutions": 2,
+        "diversity": 6.063062
       }
     },
     {
@@ -226,12 +283,15 @@
       "kind": "corpus",
       "regime": "relief",
       "pieceCount": 9,
-      "instanceHash": "d45bf8b85e80fb55123833cc59745b7545334614476d7c30c62f2c1d26e97218",
+      "instanceHash": "08af73dcc5d42e622630d0618149fd81314afd398313a07aa9a7a9a2e9faf923",
       "construction": "rev2",
       "sourceDifficulty": {
-        "diversity": 5.09878,
-        "x": 0.512348,
-        "rating": 2
+        "rating": 1,
+        "x": 1.414973,
+        "nodes": 26,
+        "exhaustive": true,
+        "solutions": 1,
+        "diversity": 5.09878
       }
     },
     {
@@ -239,12 +299,15 @@
       "kind": "corpus",
       "regime": "footprint",
       "pieceCount": 9,
-      "instanceHash": "4d35562a36ca9ad667d3afbf464c37a0e123fdcd2639175e7ecfeaf8fab7a272",
+      "instanceHash": "6308c5517ad6a362e2b0f9ab0269a3f6e85d2e1118ae69a6a672586d2d809522",
       "construction": "rev2",
       "sourceDifficulty": {
-        "diversity": 4.482502,
-        "x": 0.435313,
-        "rating": 3
+        "rating": 1,
+        "x": 1.653213,
+        "nodes": 45,
+        "exhaustive": true,
+        "solutions": 1,
+        "diversity": 4.482502
       }
     },
     {
