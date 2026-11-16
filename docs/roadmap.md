@@ -212,6 +212,20 @@ Done, with these decisions:
 - The exit criterion of phase 7 and the table test of phase 8 run their manifest with `maxplus-bench run --only` on the other fixtures and compare those rows of the committed table exactly. The rows they leave out are read, not reproduced: a test holds them to what the documents claim of them (where `cor1-flat` stops, the margin under the node limit, one assembly where one is claimed).
 - What is given up: no automated test searches `new1-flat` and `new2-flat` to the end. Their results stand in the committed tables, checked against a search only when the full command is run by hand. The `slow` marker is gone.
 
+## Later addition: a relief puzzle harder than `cor1`
+
+2026-11-16. `cor1` was the one relief puzzle this search found hard. The question was whether one could be made harder still, with one assembly, by design rather than by luck. Tropical Puzzle Lab gained a family of lifted puzzles for it: a subdivision with an affine roof on each cell, not necessarily tropical. Its Pleat puzzles, `plt1` to `plt5`, put every corner of a grid of triangles at one of two heights.
+
+**Exit:** a Pleat relief puzzle that a whole search of `rust.contact_dfs` finishes with one assembly in at least 10 000 nodes, more than `cor1`'s, in the committed corpus table. It is `tests/corpus/test_hard_relief.py`: `plt1` takes 21 973 nodes.
+
+Done, with these decisions:
+
+- The corpus is 28 fixtures. All ten Pleat fixtures are in `support.corpus.EXPENSIVE`: the suite reads their rows from the committed tables and does not search them. The five footprints are also in `UNFINISHED`; they stop at the node limit with tens of thousands of assemblies.
+- The exit criterion was first to be the median whole-search count over eight random orders. A whole search visits the same nodes in any order, so that median is the count itself; the order matters only to the first assembly.
+- Pleat is hard for this search and not beyond others. Under the edge-to-edge assumption it takes under 750 nodes, and CP-SAT finds no conflict in it ([experiments](experiments.md#the-corpus-table)).
+- Two corpus tests had been relying on Shapely without a margin, and the Pleat footprints broke them. GEOS 3.14 dropped a piece when forming a union of pieces whose vertices lie 1e-7 mm off a shared line, and the deepest of two overlapping pieces can be a tie. Both oracles were corrected, and the Rust geometry was right in both cases. The validator had the same union in it: it called 810 mm² of one CP-SAT assembly of `plt4` uncovered, and up to 7 % of the edge-to-edge assemblies of a Pleat footprint (20 of 288 on `plt3-flat`). A turn of `cor1`'s answer key with the tray, which a solver may return as well, showed the same error on a puzzle already in the corpus (`test_keys_validate.py`). The validator now snap-rounds that union to a 1e-9 mm grid.
+- Recording assemblies cost the square of their number. It now uses bisection, with the same counts.
+
 ## Backlog
 
 Unordered, to be scheduled once phase 7 shows where the interesting questions are:

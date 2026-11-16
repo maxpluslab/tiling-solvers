@@ -206,7 +206,10 @@ def test_check_placement_agrees_with_shapely_and_the_validator(fixture_id: str) 
             deepest = max(depths, key=lambda other: depths[other])
             assert check.overlap_mm == pytest.approx(max(0.0, depths[deepest]), abs=LENGTH_TOL)
             if depths[deepest] > 1e-6:
-                assert check.blocker == deepest
+                # Any piece as deep as the deepest, to the length tolerance: on plt1-flat two
+                # pieces of the grid overlap a nudged triangle equally, 7e-15 mm apart.
+                assert check.blocker is not None
+                assert depths[check.blocker] == pytest.approx(depths[deepest], abs=LENGTH_TOL)
             elif depths[deepest] < -1e-6:
                 assert check.blocker is None
             assert check.fits == (check.outside_mm <= fit and check.overlap_mm <= fit)

@@ -18,17 +18,26 @@ MINI_SOURCE = ROOT / "tests" / "data" / "source" / "mini" / "puzzle.json"
 
 SOURCE_ENV = "TROPICAL_PUZZLE_LAB"
 
+# The Pleat puzzles (tropical-puzzle-lab plt1-plt5): relief searches of 7 488 to 21 973
+# nodes, and footprints with tens of thousands of assemblies at 1 500 000 nodes.
+PLEAT = frozenset({f"plt{n}" for n in range(1, 6)})
+PLEAT_FLAT = frozenset(f"{p}-flat" for p in PLEAT)
+
 # Corpus fixtures whose whole search, assuming nothing, has not been seen to end:
-# cor1-flat was stopped at 3 000 000 nodes. Tests that compare against the end of
+# cor1-flat was stopped at 3 000 000 nodes, and the Pleat footprints stop at the
+# corpus limit still finding assemblies. Tests that compare against the end of
 # that search leave these out by name, and test them separately for what can be said.
-UNFINISHED = frozenset({"cor1-flat"})
+UNFINISHED = frozenset({"cor1-flat"}) | PLEAT_FLAT
 
 # Corpus fixtures whose whole search, assuming nothing, the test suite does not run:
 # 909 750 nodes and more (cor1-flat stops at the corpus manifest's limit of 1 500 000),
 # against at most 128 230 for the rest (benchmarks/results/corpus.md). Run again and
 # again across the tests they took over ten minutes. The suite reproduces the other rows
 # of the committed tables; these rows are checked by running the full command by hand.
-EXPENSIVE = frozenset({"cor1-flat", "new1-flat", "new2-flat"})
+# The Pleat puzzles are left out whole: their relief searches are the corpus's hardest
+# with roofs on, and the suite has no use for running them on every change beyond what
+# the committed table and tests/corpus/test_hard_relief.py say about them.
+EXPENSIVE = frozenset({"cor1-flat", "new1-flat", "new2-flat"}) | PLEAT | PLEAT_FLAT
 # CP-SAT on rat2-flat: whole, but 80 s of choosing among its listed placements.
 EXPENSIVE_FOR_CP_SAT = EXPENSIVE | {"rat2-flat"}
 

@@ -31,7 +31,10 @@ from support import corpus
 PIECES = {entry["id"]: entry["pieceCount"] for entry in corpus.index()["fixtures"]}
 # Lists short enough to intersect every pair: up to a few hundred placements.
 FLAT = ["new5-flat", "rev2-flat", "new4-flat"]
-RELIEF = corpus.fixture_ids(kind="corpus", regime="relief")
+# Without the Pleat puzzles (corpus.EXPENSIVE): their models take a minute to build.
+RELIEF = [
+    f for f in corpus.fixture_ids(kind="corpus", regime="relief") if f not in corpus.EXPENSIVE
+]
 SYNTHETIC = corpus.fixture_ids(kind="synthetic")
 
 LENGTH_TOL = 1e-6
