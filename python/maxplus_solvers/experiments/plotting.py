@@ -80,12 +80,21 @@ def proxy_against_cost(
 
 GLANCE_SOLVER = "rust.contact_dfs"
 
-# The series of the figure below, in drawing order: label, marker, filled.
+# The series of the figure below, in drawing order: label, marker, filled, colour.
+# The colour is the regime, the marker the assumption.
+FLAT, RELIEF = "tab:red", "tab:blue"
+# Within a construction's row, flat points sit a little below the line and relief points
+# a little above it, so that equal counts in the two regimes do not hide each other.
+ROW_OFFSET = {FLAT: 0.15, RELIEF: -0.15}
 GLANCE_SERIES = (
-    ("flat, assuming nothing", "o", True),
-    ("flat, stopped at the node limit (a lower bound)", ">", False),
-    ("relief, assuming nothing", "s", True),
-    ("flat, assuming edge to edge", "D", True),
+    ("flat, assuming nothing", "o", True, FLAT),
+    ("flat, stopped at the node limit (a lower bound)", ">", False, FLAT),
+    ("flat, assuming edge to edge", "D", True, FLAT),
+    ("relief, assuming nothing", "s", True, RELIEF),
+    ("relief, assuming edge to edge", "D", True, RELIEF),
+)
+FLAT_NOTHING, FLAT_STOPPED, FLAT_E2E, RELIEF_NOTHING, RELIEF_E2E = (
+    label for label, *_ in GLANCE_SERIES
 )
 
 
@@ -104,7 +113,7 @@ def _glance_points(
 
     solver = f"`{GLANCE_SOLVER}`"
     pieces: dict[str, int] = {}
-    series: dict[str, dict[str, int]] = {label: {} for label, _, _ in GLANCE_SERIES}
+    series: dict[str, dict[str, int]] = {label: {} for label, *_ in GLANCE_SERIES}
     for row in corpus_rows:
         need(row, "Fixture", "Pieces", "Solver", "Mode", "Whole search", "Nodes")
         if row["Solver"] != solver:
@@ -112,18 +121,20 @@ def _glance_points(
         construction = row["Fixture"].strip("`").removesuffix("-flat")
         pieces[construction] = int(row["Pieces"])
         if row["Mode"] == "relief":
-            label = GLANCE_SERIES[2][0]
+            label = RELIEF_NOTHING
         elif row["Whole search"] == "yes":
-            label = GLANCE_SERIES[0][0]
+            label = FLAT_NOTHING
         else:
-            label = GLANCE_SERIES[1][0]
+            label = FLAT_STOPPED
         series[label][construction] = nodes(row["Nodes"])
     for row in e2e_rows:
         need(row, "Fixture", "Solver", "Mode", "assumes", "equal_edges", "wall_edges", "Nodes")
         chosen = (row["Solver"], row["Mode"], row["assumes"], row["equal_edges"], row["wall_edges"])
-        if chosen == (solver, "footprint", "edge-to-edge", "true", "true"):
-            construction = row["Fixture"].strip("`").removesuffix("-flat")
-            series[GLANCE_SERIES[3][0]][construction] = nodes(row["Nodes"])
+        if chosen[0] != solver or chosen[2:] != ("edge-to-edge", "true", "true"):
+            continue
+        construction = row["Fixture"].strip("`").removesuffix("-flat")
+        label = RELIEF_E2E if row["Mode"] == "relief" else FLAT_E2E
+        series[label][construction] = nodes(row["Nodes"])
     order = sorted(pieces.items(), key=lambda item: (item[1], item[0]))
     return order, series
 
@@ -131,11 +142,12 @@ def _glance_points(
 def regimes_at_a_glance(
     corpus_rows: Sequence[Mapping[str, str]], e2e_rows: Sequence[Mapping[str, str]]
 ) -> Figure:
-    """Whole-search nodes of each construction, flat, with roofs, and flat assuming edge to edge.
+    """Whole-search nodes per construction, flat and with roofs, assuming nothing or edge to edge.
 
     Takes the rows of the committed tables ``benchmarks/results/corpus.md`` and
     ``edge_to_edge.md`` as :func:`report.parse_markdown` reads them, so it needs no
-    search. Only ``rust.contact_dfs`` is drawn, with both edge-to-edge rules on.
+    search. Only ``rust.contact_dfs`` is drawn, and under the assumption only with both
+    of its rules on. Colour is the regime, a diamond the assumption.
     A flat search stopped at the node limit is drawn as an open arrow at the limit:
     the true count is larger.
     """
@@ -152,17 +164,15 @@ def regimes_at_a_glance(
         values = [points[construction] for points in series.values() if construction in points]
         if values:
             axes.plot([min(values), max(values)], [index, index], color="0.85", zorder=1)
-    for (label, marker, filled), color in zip(
-        GLANCE_SERIES, ("tab:red", "tab:red", "tab:blue", "tab:green"), strict=True
-    ):
+    for label, marker, filled, color in GLANCE_SERIES:
         points = series[label]
         if not points:
             continue
         axes.scatter(
             [points[c] for c in points],
-            [rows[c] for c in points],
+            [rows[c] + ROW_OFFSET[color] for c in points],
             marker=marker,
-            s=36,
+            s=30 if marker == "D" else 36,
             label=label,
             facecolors=color if filled else "none",
             edgecolors=color,

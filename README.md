@@ -2,9 +2,9 @@
 
 A solver laboratory for geometric tiling puzzles, starting with the tropical puzzles published by [Tropical Puzzle Lab](https://github.com/maxpluslab/tropical-puzzle-lab). It is a research platform, not a single solver. Several search methods run on the same puzzles, behind one contract, with an independent validator and reproducible benchmarks. The question it asks is what makes a puzzle hard for a search, and what helps.
 
-![Search-tree nodes of a whole search for each of the 14 constructions, flat, with roofs, and flat assuming edge to edge](docs/figures/at-a-glance.svg)
+![Search-tree nodes of a whole search for each of the 14 constructions, flat and with roofs, assuming nothing and assuming edge to edge](docs/figures/at-a-glance.svg)
 
-*Search effort for each construction (pieces in brackets), as nodes in the search tree of `rust.contact_dfs` with default options and tolerances, node limit 1 500 000. Each point is a whole search, with every assembly found, unless it is an open arrow: those flat searches were stopped at the limit, so their true cost is larger. Nodes are not running times and not a measure of how hard a puzzle is for a person. Data: [corpus.md](benchmarks/results/corpus.md) and [edge_to_edge.md](benchmarks/results/edge_to_edge.md); drawn by `uv run maxplus-bench figure`.*
+*Search effort for each construction (pieces in brackets): red without roofs, just below the line, and blue with them, just above it; diamonds assume the pieces meet edge to edge. Effort is counted in nodes in the search tree of `rust.contact_dfs` with default options and tolerances, node limit 1 500 000. Each point is a whole search, with every assembly found, unless it is an open arrow: those flat searches were stopped at the limit, so their true cost is larger. Nodes are not running times and not a measure of how hard a puzzle is for a person. Data: [corpus.md](benchmarks/results/corpus.md) and [edge_to_edge.md](benchmarks/results/edge_to_edge.md); drawn by `uv run maxplus-bench figure`.*
 
 ## At a glance
 

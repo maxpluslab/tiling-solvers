@@ -119,18 +119,26 @@ E2E_ROWS = [
     e2e_row("a-flat", "footprint", "true", "true", "20"),
     e2e_row("a-flat", "footprint", "false", "true", "99"),  # one rule off: not drawn
     e2e_row("b-flat", "footprint", "true", "true", "5 000"),
-    e2e_row("b", "relief", "true", "true", "77"),  # relief under the assumption: not drawn
+    e2e_row("b", "relief", "true", "true", "77"),
+    e2e_row("b", "relief", "true", "false", "88"),  # one rule off: not drawn
 ]
 
 
 def test_the_glance_draws_each_construction_in_its_three_regimes() -> None:
     (axes,) = plotting.regimes_at_a_glance(CORPUS_ROWS, E2E_ROWS).axes
     series = {str(c.get_label()): values(c.get_offsets()) for c in axes.collections}
-    # Rows go by pieces: a (4 pieces) at y 0, b (9) at y 1. Values from the rows above.
-    assert series["flat, assuming nothing"] == [[1234, 0]]
-    assert series["flat, stopped at the node limit (a lower bound)"] == [[1_500_000, 1]]
-    assert series["relief, assuming nothing"] == [[12, 0], [300, 1]]
-    assert series["flat, assuming edge to edge"] == [[20, 0], [5000, 1]]
+    # Rows go by pieces: a (4 pieces) at y 0, b (9) at y 1. Flat points sit 0.15 below
+    # the row (larger y, the axis is inverted), relief 0.15 above. Values from the rows above.
+    expected = {
+        "flat, assuming nothing": [[1234, 0.15]],
+        "flat, stopped at the node limit (a lower bound)": [[1_500_000, 1.15]],
+        "flat, assuming edge to edge": [[20, 0.15], [5000, 1.15]],
+        "relief, assuming nothing": [[12, -0.15], [300, 0.85]],
+        "relief, assuming edge to edge": [[77, 0.85]],
+    }
+    assert sorted(series) == sorted(expected)
+    for label, points in expected.items():
+        assert series[label] == [pytest.approx(p, abs=1e-12) for p in points], label
     assert [label.get_text() for label in axes.get_yticklabels()] == ["a (4)", "b (9)"]
     assert axes.get_xscale() == "log"
 

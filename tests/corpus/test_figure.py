@@ -33,7 +33,7 @@ def test_the_committed_figure_names_every_construction_and_series() -> None:
     labels = labels_in(FIGURE.read_text(encoding="utf-8"))
     pieces = {row["Fixture"].strip("`"): row["Pieces"] for row in read("corpus.md")}
     assert {f"{c} ({pieces[c]})" for c in CONSTRUCTIONS} <= labels
-    assert {label for label, _, _ in plotting.GLANCE_SERIES} <= labels
+    assert {label for label, *_ in plotting.GLANCE_SERIES} <= labels
 
 
 def test_the_committed_figure_is_what_the_command_draws_now(tmp_path: Path) -> None:
@@ -52,6 +52,8 @@ def test_the_committed_figure_is_what_the_command_draws_now(tmp_path: Path) -> N
         ("relief, assuming nothing", "new1", 68),
         ("flat, assuming edge to edge", "new1", 49),
         ("relief, assuming nothing", "plt1", 21_973),
+        ("relief, assuming edge to edge", "plt1", 749),
+        ("relief, assuming edge to edge", "new1", 49),
         ("flat, stopped at the node limit (a lower bound)", "cor1", 1_500_000),
         ("flat, assuming edge to edge", "cor1", 44_539),
     ],
@@ -62,5 +64,5 @@ def test_the_figure_places_points_from_the_tables(
     (axes,) = plotting.regimes_at_a_glance(read("corpus.md"), read("edge_to_edge.md")).axes
     ticks = [label.get_text().split(" ")[0] for label in axes.get_yticklabels()]
     collection = next(c for c in axes.collections if c.get_label() == series)
-    points = {ticks[int(y)]: x for x, y in np.asarray(collection.get_offsets(), dtype=float)}
+    points = {ticks[round(y)]: x for x, y in np.asarray(collection.get_offsets(), dtype=float)}
     assert points[construction] == pytest.approx(nodes, abs=1e-9)
