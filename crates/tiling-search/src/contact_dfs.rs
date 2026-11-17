@@ -57,7 +57,7 @@ use tiling_geometry::{
     Meeting, Shape, centroid, least_width, signed_area, transform,
 };
 
-use crate::canonical::{Placement, Symmetry};
+use crate::canonical::{Form, Placement, Symmetry};
 
 /// What to do about assemblies that are turns of one another.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -458,6 +458,11 @@ struct Search<'a> {
     angle_slack: f64,
     stats: Stats,
     solutions: Vec<Vec<Pose>>,
+    /// The forms of the solutions found, in the order of `Symmetry::compare_forms`,
+    /// so that a new assembly is checked against all of them by bisection. Comparing
+    /// it with each in turn costs the square of the number found, hours for a
+    /// footprint with tens of thousands of assemblies.
+    forms: Vec<Form>,
     started: Instant,
     first_solution: Option<Duration>,
     stopped: bool,
@@ -683,11 +688,22 @@ impl Search<'_> {
         let poses = match self.options.tray_rotations {
             TrayRotations::All => poses,
             TrayRotations::Once => {
-                if self.solutions.iter().any(|s| self.symmetry.same(s, &poses)) {
-                    self.stats.duplicates += 1;
-                    return;
+                let form = self.symmetry.form(&poses);
+                let symmetry = &self.symmetry;
+                match self
+                    .forms
+                    .binary_search_by(|f| symmetry.compare_forms(f, &form))
+                {
+                    Ok(_) => {
+                        self.stats.duplicates += 1;
+                        return;
+                    }
+                    Err(at) => {
+                        let canonical = self.symmetry.poses(&form);
+                        self.forms.insert(at, form);
+                        canonical
+                    }
                 }
-                self.symmetry.canonical(&poses)
             }
         };
         self.solutions.push(poses);
@@ -857,6 +873,7 @@ pub fn solve(
         angle_slack: tolerance.angle * (count + 1) as f64,
         stats: Stats::default(),
         solutions: Vec::new(),
+        forms: Vec::new(),
         started,
         first_solution: None,
         stopped: false,

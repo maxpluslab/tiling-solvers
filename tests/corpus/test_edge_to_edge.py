@@ -14,10 +14,11 @@ answer key is among it and the validator passes all of it. ``cor1-flat``, whose
 plain search has not been seen to end, is tested apart: everything the assumed
 search returns is valid and edge to edge by the oracle, and the key is among it.
 ``new1-flat`` and ``new2-flat``, whose plain searches take a million nodes, are
-not compared here; their rows of the committed table, which only the full
-command reproduces, record one assembly with and without the assumption. The
-counts are relative to the candidates the search generates, in ``f64`` with
-tolerances.
+not compared here, nor are the Pleat puzzles (``corpus.PLEAT``), whose relief
+searches take up to 22 000 nodes and whose footprints have tens of thousands of
+assemblies; their rows of the committed table, which only the full command
+reproduces, say what the searches found. The counts are relative to the
+candidates the search generates, in ``f64`` with tolerances.
 """
 
 from pathlib import Path
@@ -51,7 +52,14 @@ CORPUS = [f for f in EVERY if f not in corpus.UNFINISHED]
 # Assemblies found assuming nothing, up to turning the tray, where not one (phase 5).
 ASSEMBLIES = {"rat1-flat": 101, "rat2-flat": 2}
 # Assemblies found assuming edge to edge, where not one.
-EDGE_TO_EDGE_ASSEMBLIES = {"cor1-flat": 48}
+# Pleat: 288 = 4! 4! / 2, as many as there are orders of the grid's columns and of its rows,
+# counted once with the tray's half turn (72 = 4! 3! / 2 for the 4 x 3 plt5). A count that
+# matches, not a check of which assemblies they are; read from the committed table, not run.
+EDGE_TO_EDGE_ASSEMBLIES = {
+    "cor1-flat": 48,
+    **{f"plt{n}-flat": 288 for n in range(1, 5)},
+    "plt5-flat": 72,
+}
 # Where a search assuming nothing stops in the committed table (benchmarks/manifests).
 NODE_LIMIT = 1_500_000
 # Whole plain searches of these are a million nodes each: not run here (support/corpus.py).
@@ -89,8 +97,10 @@ def test_every_answer_key_meets_edge_to_edge() -> None:
         assert geometry.is_edge_to_edge(world, target, TWIN_MM), fixture_id
 
 
-def test_only_the_million_node_footprints_are_left_out() -> None:
-    assert sorted(set(EVERY) - set(CHECKED)) == ["cor1-flat", "new1-flat", "new2-flat"]
+def test_only_the_expensive_fixtures_are_left_out() -> None:
+    assert sorted(set(EVERY) - set(CHECKED)) == sorted(
+        {"cor1-flat", "new1-flat", "new2-flat"} | corpus.PLEAT | corpus.PLEAT_FLAT
+    )
 
 
 @pytest.mark.parametrize("fixture_id", CHECKED)
@@ -207,12 +217,15 @@ def test_the_rows_the_suite_does_not_reproduce_say_what_the_documents_say() -> N
     for row in rows:
         fixture, assumed = row["Fixture"], row["assumes"] == "edge-to-edge"
         if fixture in corpus.UNFINISHED and not assumed:
-            assert (row["Status"], row["Whole search"], row["Solutions"]) == (
-                "interrupted",
-                "no",
-                "0",
-            )
+            assert row["Whole search"] == "no", fixture
             assert int(row["Nodes"].replace(" ", "")) == NODE_LIMIT
+            if fixture in corpus.PLEAT_FLAT:
+                # Stopped still finding more: a lower bound, every one of them valid.
+                assert row["Status"] == "solved", fixture
+                assert row["Solutions"] == row["Valid"], fixture
+                assert int(row["Solutions"].replace(" ", "")) > 10_000, fixture
+            else:
+                assert (row["Status"], row["Solutions"]) == ("interrupted", "0"), fixture
             continue
         assert (row["Status"], row["Whole search"]) == ("solved", "yes"), fixture
         expected = (EDGE_TO_EDGE_ASSEMBLIES if assumed else ASSEMBLIES).get(fixture, 1)

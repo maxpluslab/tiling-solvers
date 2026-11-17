@@ -303,6 +303,11 @@ Whole searches with `rust.contact_dfs`, default rules, from `benchmarks/results/
 | `new2-flat` | 16 | 1 | 909 750 | 59 | 65 | 59 |
 | `rat2-flat` | 20 | 2 → 1 | 128 230 | 80 | 94 | 80 |
 | `cor1-flat` | 27 | ? → 48 | stopped at 1 500 000 | 44 539 | 50 470 | 44 539 |
+| `plt5-flat` | 24 | ≥ 95 344 → 72 | stopped at 1 500 000 | 5 566 | 5 566 | 5 566 |
+| `plt1-flat` | 32 | ≥ 54 725 → 288 | stopped at 1 500 000 | 31 835 | 31 835 | 31 835 |
+| `plt2-flat` | 32 | ≥ 59 724 → 288 | stopped at 1 500 000 | 41 068 | 41 068 | 41 068 |
+| `plt3-flat` | 32 | ≥ 26 998 → 288 | stopped at 1 500 000 | 31 598 | 31 598 | 31 598 |
+| `plt4-flat` | 32 | ≥ 81 443 → 288 | stopped at 1 500 000 | 38 066 | 38 066 | 38 066 |
 | `new5` | 6 | 1 | 26 | 14 | 26 | 14 |
 | `new3` | 9 | 1 | 44 | 24 | 40 | 24 |
 | `new4` | 9 | 1 | 45 | 24 | 39 | 24 |
@@ -312,8 +317,13 @@ Whole searches with `rust.contact_dfs`, default rules, from `benchmarks/results/
 | `new2` | 16 | 1 | 68 | 48 | 65 | 48 |
 | `rat2` | 20 | 1 | 94 | 67 | 92 | 67 |
 | `cor1` | 27 | 1 | 1 529 | 967 | 1 378 | 967 |
+| `plt5` | 24 | 1 | 7 488 | 436 | 480 | 436 |
+| `plt1` | 32 | 1 | 21 973 | 749 | 882 | 749 |
+| `plt2` | 32 | 1 | 18 490 | 639 | 808 | 639 |
+| `plt3` | 32 | 1 | 11 611 | 615 | 866 | 615 |
+| `plt4` | 32 | 1 | 10 787 | 678 | 735 | 678 |
 
-"No `wall_edges`" and "no `equal_edges`" are the assumption with that rule off. `cor1` and `cor1-flat` were built to be hard (below) and joined the corpus in this phase; the findings that follow are about the other eight constructions, and the last paragraph about `cor1`.
+"No `wall_edges`" and "no `equal_edges`" are the assumption with that rule off. `cor1` and `cor1-flat` were built to be hard (below) and joined the corpus in this phase; the findings that follow are about the other eight constructions, and the last paragraphs about `cor1` and about the Pleat puzzles `plt1` to `plt5`, added later to be harder still.
 
 - **Without roofs, it is worth more than the roofs.** The two 16-piece footprints that are hard for every configuration in the previous section take 49 and 59 nodes, against a million, and their dead ends come 1.3 and 1.6 pieces deep instead of six. On all eight constructions the footprint search under the assumption visits fewer nodes than the relief search of the same pieces that assumes nothing: 49 against 68 on `new1`, 80 against 94 on `rat2`.
 - **Most of what the roofs did was this.** A roof refuses a wrong neighbour because two planes rarely agree in height along an edge by accident. Under the assumption a wrong neighbour is already refused for meeting in a T or for a length that does not match, and adding the roofs saves at most a third of the nodes (72 to 48 on `rat1`), on four of the eight none or one. The mean degree of the edge graph says the same without a search: 0.8 to 2.4 for the footprints under the assumption, against 23 to 84 without it, and 1.2 to 6.7 for the relief puzzles without it.
@@ -323,6 +333,8 @@ Whole searches with `rust.contact_dfs`, default rules, from `benchmarks/results/
 The obvious consequence for the question this laboratory asks: in this corpus, a puzzle with roofs, or a puzzle that a solver may assume to be a tropical cut, is easy for this search. What remains hard has to defeat both: pieces whose equal edges and level creases leave many neighbours possible, as `cor1` in Tropical Puzzle Lab is built to.
 
 `cor1`, a 27-piece puzzle built in Tropical Puzzle Lab for exactly this, bears it out. With its roofs it takes 1 529 nodes assuming nothing and 967 assuming edge to edge, against 48 to 67 for the other relief puzzles under the assumption, and its dead ends stay almost six pieces deep. Without its roofs, assuming edge to edge, it has 48 assemblies and takes 44 539 nodes, with dead ends almost sixteen pieces deep; assuming nothing, the search has not been seen to end (stopped at 1 500 000 nodes in the table, and at 3 000 000 by hand), so how many of its assemblies have a T is not known. Its level creases give many walls of one length and one height profile, which neither the lengths nor the roofs can tell apart, and its columns change places without making a T. `wall_edges` still pays on it: without it, 1 378 nodes with the roofs and 50 470 without.
+
+The Pleat puzzles, built later to be harder than `cor1` with their roofs on, say where that difficulty lives. Each is a grid of rectangles cut along a diagonal, with every grid corner at one of two heights, so that an edge has one of four height profiles. With roofs, assuming nothing, they take 7 488 to 21 973 nodes, five to fourteen times `cor1`. Assuming edge to edge, 436 to 749, below `cor1`'s 967. What made them hard is the T's the search must try: a short edge against part of a long one of the same height, which the roofs cannot refuse and the assumption does. Without roofs the plain search finds tens of thousands of assemblies before it stops; under the assumption it ends, with 288 on each 4 × 4 grid and 72 on the 4 × 3 `plt5`. Those are the counts of orders of the grid's columns and rows, 4! 4! / 2 and 4! 3! / 2, counted once with the half turn. `wall_edges` makes no difference to the node counts of the footprints, and saves 8 to 29 % of them with roofs.
 
 Not built, and noted for later: a counting bound during the search (every exposed edge needs an unplaced edge of its length), and the further consequences of a tropical construction, such as edge directions with small rational slopes and, for polynomials, a convex roof.
 

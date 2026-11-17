@@ -13,7 +13,7 @@ import pytest
 
 from maxplus_solvers import Pose, PuzzleInstance
 from maxplus_solvers.validation import ValidationReport, validate_solution
-from support import corpus, geometry
+from support import assemblies, corpus, geometry
 
 ALL = corpus.fixture_ids()
 RELIEF = corpus.fixture_ids(regime="relief")
@@ -48,6 +48,33 @@ def test_the_answer_key_validates(fixture_id: str) -> None:
     assert report.worst_outside_mm == 0.0
     assert report.outside_area_mm2 == pytest.approx(0.0, abs=1e-6)
     assert report.uncovered_area_mm2 == pytest.approx(0.0, abs=1e-6)
+
+
+@pytest.mark.parametrize("fixture_id", ALL)
+def test_the_answer_key_turned_with_the_tray_validates(fixture_id: str) -> None:
+    """A turn of the whole assembly that maps the tray onto itself is still a solution, roofs
+    and all. A solver may return any member of the family, so the validator must accept each.
+
+    A regression: GEOS 3.14's floating-point union of ``cor1``'s key half turned lost a whole
+    piece, 806.4 mm², and the validator reported that much of the tray uncovered.
+    """
+    instance, poses = load(fixture_id)
+    cx, cy = geometry.centroid(instance.target)
+    turns = assemblies.tray_turns(instance.target)
+    assert len(turns) > 1  # Squares and one triangle: there is a turn besides 0.
+    for turn in turns:
+        c, s = math.cos(turn), math.sin(turn)
+        moved = {
+            pid: Pose(
+                cx + c * (p.x - cx) - s * (p.y - cy),
+                cy + s * (p.x - cx) + c * (p.y - cy),
+                p.theta + turn,
+            )
+            for pid, p in poses.items()
+        }
+        report = validate_solution(instance, moved)
+        assert report.solved, (turn, report.residuals())
+        assert report.uncovered_area_mm2 == pytest.approx(0.0, abs=1e-6), turn
 
 
 @pytest.mark.parametrize("fixture_id", RELIEF)

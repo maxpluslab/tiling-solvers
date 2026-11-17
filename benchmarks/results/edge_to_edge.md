@@ -12,6 +12,16 @@
 | `new4-flat` | 9 | `rust.contact_dfs` | footprint | nothing |  | 1500000 |  | solved | yes | 1 | 1 | 510 | 462 | 2.88 | 9.10 |
 | `new5` | 6 | `rust.contact_dfs` | relief | nothing |  | 1500000 |  | solved | yes | 1 | 1 | 26 | 16 | 1.19 | 37.85 |
 | `new5-flat` | 6 | `rust.contact_dfs` | footprint | nothing |  | 1500000 |  | solved | yes | 1 | 1 | 90 | 70 | 2.13 | 10.76 |
+| `plt1` | 32 | `rust.contact_dfs` | relief | nothing |  | 1500000 |  | solved | yes | 1 | 1 | 21 973 | 14 739 | 8.28 | 141.64 |
+| `plt1-flat` | 32 | `rust.contact_dfs` | footprint | nothing |  | 1500000 |  | solved | no | 54 725 | 54 725 | 1 500 000 | 940 579 | 22.72 | 23.35 |
+| `plt2` | 32 | `rust.contact_dfs` | relief | nothing |  | 1500000 |  | solved | yes | 1 | 1 | 18 490 | 11 670 | 8.00 | 149.38 |
+| `plt2-flat` | 32 | `rust.contact_dfs` | footprint | nothing |  | 1500000 |  | solved | no | 59 724 | 59 724 | 1 500 000 | 932 151 | 22.39 | 20.80 |
+| `plt3` | 32 | `rust.contact_dfs` | relief | nothing |  | 1500000 |  | solved | yes | 1 | 1 | 11 611 | 7 949 | 7.28 | 127.50 |
+| `plt3-flat` | 32 | `rust.contact_dfs` | footprint | nothing |  | 1500000 |  | solved | no | 26 998 | 26 998 | 1 500 000 | 1 110 831 | 19.92 | 23.66 |
+| `plt4` | 32 | `rust.contact_dfs` | relief | nothing |  | 1500000 |  | solved | yes | 1 | 1 | 10 787 | 6 319 | 8.14 | 158.72 |
+| `plt4-flat` | 32 | `rust.contact_dfs` | footprint | nothing |  | 1500000 |  | solved | no | 81 443 | 81 443 | 1 500 000 | 853 249 | 23.88 | 16.74 |
+| `plt5` | 24 | `rust.contact_dfs` | relief | nothing |  | 1500000 |  | solved | yes | 1 | 1 | 7 488 | 5 049 | 6.85 | 89.27 |
+| `plt5-flat` | 24 | `rust.contact_dfs` | footprint | nothing |  | 1500000 |  | solved | no | 95 344 | 95 344 | 1 500 000 | 777 380 | 16.96 | 16.25 |
 | `rat1` | 11 | `rust.contact_dfs` | relief | nothing |  | 1500000 |  | solved | yes | 1 | 1 | 90 | 52 | 1.90 | 72.24 |
 | `rat1-flat` | 11 | `rust.contact_dfs` | footprint | nothing |  | 1500000 |  | solved | yes | 101 | 101 | 17 425 | 13 436 | 5.29 | 21.70 |
 | `rat2` | 20 | `rust.contact_dfs` | relief | nothing |  | 1500000 |  | solved | yes | 1 | 1 | 94 | 49 | 1.49 | 118.35 |
@@ -66,6 +76,46 @@
 | `new5-flat` | 6 | `rust.contact_dfs` | footprint | edge-to-edge | true |  | false | solved | yes | 1 | 1 | 24 | 14 | 1.36 | 28.25 |
 | `new5-flat` | 6 | `rust.contact_dfs` | footprint | edge-to-edge | false |  | true | solved | yes | 1 | 1 | 14 | 6 | 1.17 | 48.50 |
 | `new5-flat` | 6 | `rust.contact_dfs` | footprint | edge-to-edge | false |  | false | solved | yes | 1 | 1 | 24 | 14 | 1.36 | 36.54 |
+| `plt1` | 32 | `rust.contact_dfs` | relief | edge-to-edge | true |  | true | solved | yes | 1 | 1 | 749 | 165 | 6.94 | 239.93 |
+| `plt1` | 32 | `rust.contact_dfs` | relief | edge-to-edge | true |  | false | solved | yes | 1 | 1 | 882 | 175 | 7.54 | 240.81 |
+| `plt1` | 32 | `rust.contact_dfs` | relief | edge-to-edge | false |  | true | solved | yes | 1 | 1 | 749 | 165 | 6.94 | 254.21 |
+| `plt1` | 32 | `rust.contact_dfs` | relief | edge-to-edge | false |  | false | solved | yes | 1 | 1 | 882 | 175 | 7.54 | 256.10 |
+| `plt1-flat` | 32 | `rust.contact_dfs` | footprint | edge-to-edge | true |  | true | solved | yes | 288 | 288 | 31 835 | 3 057 | 18.89 | 47.20 |
+| `plt1-flat` | 32 | `rust.contact_dfs` | footprint | edge-to-edge | true |  | false | solved | yes | 288 | 288 | 31 835 | 3 057 | 18.89 | 47.20 |
+| `plt1-flat` | 32 | `rust.contact_dfs` | footprint | edge-to-edge | false |  | true | solved | yes | 288 | 288 | 31 835 | 3 057 | 18.89 | 83.66 |
+| `plt1-flat` | 32 | `rust.contact_dfs` | footprint | edge-to-edge | false |  | false | solved | yes | 288 | 288 | 31 835 | 3 057 | 18.89 | 83.66 |
+| `plt2` | 32 | `rust.contact_dfs` | relief | edge-to-edge | true |  | true | solved | yes | 1 | 1 | 639 | 163 | 6.44 | 211.29 |
+| `plt2` | 32 | `rust.contact_dfs` | relief | edge-to-edge | true |  | false | solved | yes | 1 | 1 | 808 | 191 | 7.24 | 210.39 |
+| `plt2` | 32 | `rust.contact_dfs` | relief | edge-to-edge | false |  | true | solved | yes | 1 | 1 | 639 | 163 | 6.44 | 223.60 |
+| `plt2` | 32 | `rust.contact_dfs` | relief | edge-to-edge | false |  | false | solved | yes | 1 | 1 | 808 | 191 | 7.24 | 223.70 |
+| `plt2-flat` | 32 | `rust.contact_dfs` | footprint | edge-to-edge | true |  | true | solved | yes | 288 | 288 | 41 068 | 6 007 | 18.53 | 45.26 |
+| `plt2-flat` | 32 | `rust.contact_dfs` | footprint | edge-to-edge | true |  | false | solved | yes | 288 | 288 | 41 068 | 6 007 | 18.53 | 45.26 |
+| `plt2-flat` | 32 | `rust.contact_dfs` | footprint | edge-to-edge | false |  | true | solved | yes | 288 | 288 | 41 068 | 6 007 | 18.53 | 82.26 |
+| `plt2-flat` | 32 | `rust.contact_dfs` | footprint | edge-to-edge | false |  | false | solved | yes | 288 | 288 | 41 068 | 6 007 | 18.53 | 82.26 |
+| `plt3` | 32 | `rust.contact_dfs` | relief | edge-to-edge | true |  | true | solved | yes | 1 | 1 | 615 | 127 | 6.80 | 218.07 |
+| `plt3` | 32 | `rust.contact_dfs` | relief | edge-to-edge | true |  | false | solved | yes | 1 | 1 | 866 | 168 | 8.04 | 212.74 |
+| `plt3` | 32 | `rust.contact_dfs` | relief | edge-to-edge | false |  | true | solved | yes | 1 | 1 | 615 | 127 | 6.80 | 230.79 |
+| `plt3` | 32 | `rust.contact_dfs` | relief | edge-to-edge | false |  | false | solved | yes | 1 | 1 | 866 | 168 | 8.04 | 226.29 |
+| `plt3-flat` | 32 | `rust.contact_dfs` | footprint | edge-to-edge | true |  | true | solved | yes | 288 | 288 | 31 598 | 2 925 | 18.80 | 46.84 |
+| `plt3-flat` | 32 | `rust.contact_dfs` | footprint | edge-to-edge | true |  | false | solved | yes | 288 | 288 | 31 598 | 2 925 | 18.80 | 46.84 |
+| `plt3-flat` | 32 | `rust.contact_dfs` | footprint | edge-to-edge | false |  | true | solved | yes | 288 | 288 | 31 598 | 2 925 | 18.80 | 82.78 |
+| `plt3-flat` | 32 | `rust.contact_dfs` | footprint | edge-to-edge | false |  | false | solved | yes | 288 | 288 | 31 598 | 2 925 | 18.80 | 82.78 |
+| `plt4` | 32 | `rust.contact_dfs` | relief | edge-to-edge | true |  | true | solved | yes | 1 | 1 | 678 | 133 | 7.06 | 226.14 |
+| `plt4` | 32 | `rust.contact_dfs` | relief | edge-to-edge | true |  | false | solved | yes | 1 | 1 | 735 | 139 | 7.36 | 226.46 |
+| `plt4` | 32 | `rust.contact_dfs` | relief | edge-to-edge | false |  | true | solved | yes | 1 | 1 | 678 | 133 | 7.06 | 237.34 |
+| `plt4` | 32 | `rust.contact_dfs` | relief | edge-to-edge | false |  | false | solved | yes | 1 | 1 | 735 | 139 | 7.36 | 238.34 |
+| `plt4-flat` | 32 | `rust.contact_dfs` | footprint | edge-to-edge | true |  | true | solved | yes | 288 | 288 | 38 066 | 2 614 | 20.13 | 45.25 |
+| `plt4-flat` | 32 | `rust.contact_dfs` | footprint | edge-to-edge | true |  | false | solved | yes | 288 | 288 | 38 066 | 2 614 | 20.13 | 45.25 |
+| `plt4-flat` | 32 | `rust.contact_dfs` | footprint | edge-to-edge | false |  | true | solved | yes | 288 | 288 | 38 066 | 2 614 | 20.13 | 85.79 |
+| `plt4-flat` | 32 | `rust.contact_dfs` | footprint | edge-to-edge | false |  | false | solved | yes | 288 | 288 | 38 066 | 2 614 | 20.13 | 85.79 |
+| `plt5` | 24 | `rust.contact_dfs` | relief | edge-to-edge | true |  | true | solved | yes | 1 | 1 | 436 | 103 | 6.17 | 165.58 |
+| `plt5` | 24 | `rust.contact_dfs` | relief | edge-to-edge | true |  | false | solved | yes | 1 | 1 | 480 | 109 | 6.36 | 166.82 |
+| `plt5` | 24 | `rust.contact_dfs` | relief | edge-to-edge | false |  | true | solved | yes | 1 | 1 | 436 | 103 | 6.17 | 175.97 |
+| `plt5` | 24 | `rust.contact_dfs` | relief | edge-to-edge | false |  | false | solved | yes | 1 | 1 | 480 | 109 | 6.36 | 177.60 |
+| `plt5-flat` | 24 | `rust.contact_dfs` | footprint | edge-to-edge | true |  | true | solved | yes | 72 | 72 | 5 566 | 300 | 14.71 | 40.13 |
+| `plt5-flat` | 24 | `rust.contact_dfs` | footprint | edge-to-edge | true |  | false | solved | yes | 72 | 72 | 5 566 | 300 | 14.71 | 40.13 |
+| `plt5-flat` | 24 | `rust.contact_dfs` | footprint | edge-to-edge | false |  | true | solved | yes | 72 | 72 | 5 566 | 300 | 14.71 | 63.91 |
+| `plt5-flat` | 24 | `rust.contact_dfs` | footprint | edge-to-edge | false |  | false | solved | yes | 72 | 72 | 5 566 | 300 | 14.71 | 63.91 |
 | `rat1` | 11 | `rust.contact_dfs` | relief | edge-to-edge | true |  | true | solved | yes | 1 | 1 | 48 | 18 | 2.39 | 67.67 |
 | `rat1` | 11 | `rust.contact_dfs` | relief | edge-to-edge | true |  | false | solved | yes | 1 | 1 | 83 | 42 | 1.95 | 78.01 |
 | `rat1` | 11 | `rust.contact_dfs` | relief | edge-to-edge | false |  | true | solved | yes | 1 | 1 | 48 | 18 | 2.39 | 71.83 |

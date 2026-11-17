@@ -17,9 +17,16 @@ solver = "rust.contact_dfs"
 [runs.options]
 node_limit = 1500000
 
-# CP-SAT choosing among the placements that search reaches.
+# CP-SAT choosing among the placements that search reaches. Not the Pleat footprints:
+# their listing stops at the node limit, and CP-SAT would then enumerate every assembly of
+# the placements listed, far more than the 26 998 to 95 344 the search finds by the limit.
 [[runs]]
 solver = "cp_sat.placements"
+fixtures = [
+    "cor1", "cor1-flat", "new1", "new1-flat", "new2", "new2-flat", "new3", "new3-flat",
+    "new4", "new4-flat", "new5", "new5-flat", "plt1", "plt2", "plt3", "plt4", "plt5",
+    "rat1", "rat1-flat", "rat2", "rat2-flat", "rev2", "rev2-flat",
+]
 
 [runs.options]
 node_limit = 1500000

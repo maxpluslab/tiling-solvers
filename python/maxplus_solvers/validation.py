@@ -15,7 +15,8 @@ Rust geometry, so that one bug cannot make a solver and its checker agree.
 
 Where it differs from the browser, it is the stricter or the more exact of the two:
 
-* uncovered area comes from an exact union of the pieces; the browser uses
+* uncovered area comes from a union of the pieces, snap-rounded to a 1e-9 mm
+  grid (``GRID_MM``); the browser uses
   first-order inclusion-exclusion, which is exact only when no three pieces
   share area;
 * outside depth is the Euclidean distance from a vertex to the target; the
@@ -45,6 +46,12 @@ except ImportError as error:  # pragma: no cover - exercised only without the ex
 from maxplus_solvers.models import Piece, Pose, PuzzleInstance, Solution, TolerancePolicy
 
 Vec2 = tuple[float, float]
+
+# The union of the pieces is snap-rounded to this grid. GEOS's floating-point overlay can lose
+# a whole piece from the union of many that meet along edges without sharing vertices
+# (GEOS 3.14: 806.4 mm² of cor1's key turned half round); snap rounding is robust, and
+# moves no vertex by more than half the grid.
+GRID_MM = 1e-9
 
 
 @dataclass(frozen=True, slots=True)
@@ -269,7 +276,8 @@ def validate_solution(
         worst = max(shapely.Point(vertex).distance(target) for vertex in world[pid])
         outside_mm[pid] = worst if worst > noise else 0.0
         outside_area += shapes[pid].difference(target).area
-    uncovered = target.difference(shapely.union_all(list(shapes.values()))).area
+    covered = shapely.union_all(list(shapes.values()), grid_size=GRID_MM)
+    uncovered = shapely.difference(target, covered, grid_size=GRID_MM).area
 
     return ValidationReport(
         worst_overlap_depth_mm=max((o.depth_mm for o in overlaps), default=0.0),

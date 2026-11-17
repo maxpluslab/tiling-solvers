@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "source": {
     "repository": "https://github.com/maxpluslab/tropical-puzzle-lab",
-    "commit": "cfe2c8be097132aa378b2cf397b93524fb869fe1"
+    "commit": "d3153f5b6a84aab7242bad12b443687c19375691"
   },
   "sanitizerVersion": 1,
   "sourceDifficulty": {
@@ -11,7 +11,7 @@
       "id": "rust.contact_dfs",
       "version": "0.1.0",
       "repository": "https://github.com/maxpluslab/tiling-solvers",
-      "commit": "2c2cd7c5d491e1f454d429435d40b1e635ab256a",
+      "commit": "5b482e0d72830f51751ebc45d6b1a376ea366023",
       "nodeLimit": 1500000
     },
     "thresholds": [2.0, 3.0, 4.0, 5.5],
@@ -27,7 +27,7 @@
       "kind": "corpus",
       "regime": "relief",
       "pieceCount": 27,
-      "instanceHash": "d7db7ec43404c993a80075212dc825debff5b264fbcf8fa8b87e72e89bd0662c",
+      "instanceHash": "bbc718fe3d7ea9d4493459a8e9adb1981dd5abed7b02d475a0013fe9ac590894",
       "construction": "cor1",
       "sourceDifficulty": {
         "rating": 3,
@@ -43,7 +43,7 @@
       "kind": "corpus",
       "regime": "footprint",
       "pieceCount": 27,
-      "instanceHash": "693a018dbc1ebd466e760261c4e9fc190d04436f011a6291fa254d61d494da20",
+      "instanceHash": "545fea6fc867a300a0da7b63b7a2228381bd1c339d3ab51bcc209851af6aaef5",
       "construction": "cor1",
       "sourceDifficulty": {
         "rating": 5,
@@ -59,7 +59,7 @@
       "kind": "corpus",
       "regime": "relief",
       "pieceCount": 16,
-      "instanceHash": "f3f11247194bc8ed62792482ca64a1980e282abeb9fec1ef839b6e220ed9be6c",
+      "instanceHash": "d16d29e39c7691c84cbebc25b2ac913f71c7b4255207097f9739d7bd129ab7cb",
       "construction": "new1",
       "sourceDifficulty": {
         "rating": 1,
@@ -75,7 +75,7 @@
       "kind": "corpus",
       "regime": "footprint",
       "pieceCount": 16,
-      "instanceHash": "3b68bf1e0e105e254fdd45dadaa62cca711621f9a730d2489794c299b53260e8",
+      "instanceHash": "47878f9665e34eb76d37bbb49e175e4b59ec149bef358ca7c48ee301c37042fc",
       "construction": "new1",
       "sourceDifficulty": {
         "rating": 5,
@@ -91,7 +91,7 @@
       "kind": "corpus",
       "regime": "relief",
       "pieceCount": 16,
-      "instanceHash": "ceae2892b1d366acf3784aab3bde4272fdacab2da6b20468e7fc5325b53a463e",
+      "instanceHash": "f392dfd7dceb7f52a52582be80db4bc809fd04244e653e9e7b55f8a48711246c",
       "construction": "new2",
       "sourceDifficulty": {
         "rating": 1,
@@ -107,7 +107,7 @@
       "kind": "corpus",
       "regime": "footprint",
       "pieceCount": 16,
-      "instanceHash": "7d16d1a433da1c2fd2a1da8952a1cbd6febf303c422a4b8fb93ffe7e0a0fe73c",
+      "instanceHash": "19e6af7d1a722438618915bde4baa4146ada61aeb97ba60b13039c5aace388bb",
       "construction": "new2",
       "sourceDifficulty": {
         "rating": 5,
@@ -123,7 +123,7 @@
       "kind": "corpus",
       "regime": "relief",
       "pieceCount": 9,
-      "instanceHash": "fa1f3fbf05c4807a42682d33a9848fa90b61699f3bf0741d0f180a4ae2fc675a",
+      "instanceHash": "fd85c03021372563446302f92bdd358a2e7f365341cea21b578cc7792104c370",
       "construction": "new3",
       "sourceDifficulty": {
         "rating": 1,
@@ -139,7 +139,7 @@
       "kind": "corpus",
       "regime": "footprint",
       "pieceCount": 9,
-      "instanceHash": "96da3741917645494972765eaf1e0af3553766b9db5ab4d8304ee0837c105b38",
+      "instanceHash": "c32d2ae44835c6efb27d8f16196d8553391ef043848487a59ab049a726a7c220",
       "construction": "new3",
       "sourceDifficulty": {
         "rating": 3,
@@ -155,7 +155,7 @@
       "kind": "corpus",
       "regime": "relief",
       "pieceCount": 9,
-      "instanceHash": "f7c565210160817404ceaf63beb8e8b645174c8429d75894a813a53c3cd2af00",
+      "instanceHash": "470743ee57b6b93146ce250d84ff1fcce2675faff7a1dbba6749b014973c4d1a",
       "construction": "new4",
       "sourceDifficulty": {
         "rating": 1,
@@ -171,7 +171,7 @@
       "kind": "corpus",
       "regime": "footprint",
       "pieceCount": 9,
-      "instanceHash": "be1f76117815ed4c2b3d3f7e97826daea73c798689b0d70f72ebf3bf9d8a9829",
+      "instanceHash": "0f002a815257e9a770ce886fb3aee972b48ca411206ff9943fa8e8cb97ca0b93",
       "construction": "new4",
       "sourceDifficulty": {
         "rating": 2,
@@ -187,7 +187,7 @@
       "kind": "corpus",
       "regime": "relief",
       "pieceCount": 6,
-      "instanceHash": "43c648b7900770edc285c9ecc6d8e631e370d7c50bffaa61108bcd138cb08d49",
+      "instanceHash": "95fc448dfa619d251d08c43e078d90101d2f64d105dfbb9b59c10b7a8f8b5825",
       "construction": "new5",
       "sourceDifficulty": {
         "rating": 1,
@@ -203,7 +203,7 @@
       "kind": "corpus",
       "regime": "footprint",
       "pieceCount": 6,
-      "instanceHash": "c6bbab15d33416d43d35300ad9ee20937445f93438a1cd4befde048ce4fa7bb1",
+      "instanceHash": "9352aafe3966d134aef305bd884fc266f2d96ac4a727b8434e4850c552f150ac",
       "construction": "new5",
       "sourceDifficulty": {
         "rating": 1,
@@ -215,11 +215,171 @@
       }
     },
     {
+      "id": "plt1",
+      "kind": "corpus",
+      "regime": "relief",
+      "pieceCount": 32,
+      "instanceHash": "28ad41c0b48f4f953ea28a69d47a4630d274b9b3fbd3543f82a10bf1ce558ee8",
+      "construction": "plt1",
+      "sourceDifficulty": {
+        "rating": 4,
+        "x": 4.341889,
+        "nodes": 21973,
+        "exhaustive": true,
+        "solutions": 1,
+        "diversity": 4.023287
+      }
+    },
+    {
+      "id": "plt1-flat",
+      "kind": "corpus",
+      "regime": "footprint",
+      "pieceCount": 32,
+      "instanceHash": "f73a6f5e3ef758635e0bb3b241d71f86a4566ad100add3deb5b81624470d707f",
+      "construction": "plt1",
+      "sourceDifficulty": {
+        "rating": 5,
+        "x": 6.176091,
+        "nodes": 1500000,
+        "exhaustive": false,
+        "solutions": 54725,
+        "diversity": 3.756232
+      }
+    },
+    {
+      "id": "plt2",
+      "kind": "corpus",
+      "regime": "relief",
+      "pieceCount": 32,
+      "instanceHash": "7b978ccf2df18996b795a64ed57126f552df4293ada7377644a5e55710fe9451",
+      "construction": "plt2",
+      "sourceDifficulty": {
+        "rating": 4,
+        "x": 4.266937,
+        "nodes": 18490,
+        "exhaustive": true,
+        "solutions": 1,
+        "diversity": 4.212717
+      }
+    },
+    {
+      "id": "plt2-flat",
+      "kind": "corpus",
+      "regime": "footprint",
+      "pieceCount": 32,
+      "instanceHash": "d8e415eb0af0a528707b0c02506612e1c2d9cd4d2571b82c41747a90c1588c09",
+      "construction": "plt2",
+      "sourceDifficulty": {
+        "rating": 5,
+        "x": 6.176091,
+        "nodes": 1500000,
+        "exhaustive": false,
+        "solutions": 59724,
+        "diversity": 3.525808
+      }
+    },
+    {
+      "id": "plt3",
+      "kind": "corpus",
+      "regime": "relief",
+      "pieceCount": 32,
+      "instanceHash": "e73daacb28ff962473a0d4f007eafdfda67324d30313ffe95b8d09df47c0b671",
+      "construction": "plt3",
+      "sourceDifficulty": {
+        "rating": 4,
+        "x": 4.06487,
+        "nodes": 11611,
+        "exhaustive": true,
+        "solutions": 1,
+        "diversity": 3.805769
+      }
+    },
+    {
+      "id": "plt3-flat",
+      "kind": "corpus",
+      "regime": "footprint",
+      "pieceCount": 32,
+      "instanceHash": "15a9d47300bbe0d46a0df3250e89ba6d24395445e864e693599f2aa20a50f708",
+      "construction": "plt3",
+      "sourceDifficulty": {
+        "rating": 5,
+        "x": 6.176091,
+        "nodes": 1500000,
+        "exhaustive": false,
+        "solutions": 26998,
+        "diversity": 3.681403
+      }
+    },
+    {
+      "id": "plt4",
+      "kind": "corpus",
+      "regime": "relief",
+      "pieceCount": 32,
+      "instanceHash": "37fe028252b9a4e5087d5ec6c5f1c1513320eda1c57167689944c9e28bc73c1d",
+      "construction": "plt4",
+      "sourceDifficulty": {
+        "rating": 4,
+        "x": 4.032901,
+        "nodes": 10787,
+        "exhaustive": true,
+        "solutions": 1,
+        "diversity": 3.675652
+      }
+    },
+    {
+      "id": "plt4-flat",
+      "kind": "corpus",
+      "regime": "footprint",
+      "pieceCount": 32,
+      "instanceHash": "a48fa48c9bea34aaebf870c1944f02ce116c9093e8cb4fcf80170decbe1fa5d7",
+      "construction": "plt4",
+      "sourceDifficulty": {
+        "rating": 5,
+        "x": 6.176091,
+        "nodes": 1500000,
+        "exhaustive": false,
+        "solutions": 81443,
+        "diversity": 3.694665
+      }
+    },
+    {
+      "id": "plt5",
+      "kind": "corpus",
+      "regime": "relief",
+      "pieceCount": 24,
+      "instanceHash": "5cbf55990ad0d4854af21ffb07a5a56dd1960945b73055b20b642fd9e51ebb03",
+      "construction": "plt5",
+      "sourceDifficulty": {
+        "rating": 3,
+        "x": 3.874366,
+        "nodes": 7488,
+        "exhaustive": true,
+        "solutions": 1,
+        "diversity": 4.077608
+      }
+    },
+    {
+      "id": "plt5-flat",
+      "kind": "corpus",
+      "regime": "footprint",
+      "pieceCount": 24,
+      "instanceHash": "d628c564608b9e86416f44720cbc758cec58f3103515fd052f19f8797cd653e4",
+      "construction": "plt5",
+      "sourceDifficulty": {
+        "rating": 5,
+        "x": 6.176091,
+        "nodes": 1500000,
+        "exhaustive": false,
+        "solutions": 95344,
+        "diversity": 3.636675
+      }
+    },
+    {
       "id": "rat1",
       "kind": "corpus",
       "regime": "relief",
       "pieceCount": 11,
-      "instanceHash": "b79a18190749853d0a5b50d03b52d558d499140dd86e91e113658c56a19217b8",
+      "instanceHash": "b18060830cdb0dddcca427532b6eb105ac4630c10a8c6c77acde122ce3687024",
       "construction": "rat1",
       "sourceDifficulty": {
         "rating": 1,
@@ -235,7 +395,7 @@
       "kind": "corpus",
       "regime": "footprint",
       "pieceCount": 11,
-      "instanceHash": "b57c9992f73665a1b6966e3875de691e4c217a3fe6891b1b36a201423a4180d9",
+      "instanceHash": "174074422b12292efdefe1d1fd0a10b924ed6d671448e3e57baeb4395f4dd599",
       "construction": "rat1",
       "sourceDifficulty": {
         "rating": 4,
@@ -251,7 +411,7 @@
       "kind": "corpus",
       "regime": "relief",
       "pieceCount": 20,
-      "instanceHash": "fc22d29e662b8d9dc55e6a20bb36bbaeb04d638bbc76fa8b1a1e79b6d9e06d9b",
+      "instanceHash": "406e2d4eeff8260dc70d111e975351554637b79cfc6b3aa08ad21ec98b543e56",
       "construction": "rat2",
       "sourceDifficulty": {
         "rating": 1,
@@ -267,7 +427,7 @@
       "kind": "corpus",
       "regime": "footprint",
       "pieceCount": 20,
-      "instanceHash": "ef6bb1d52337553f2299a4bc72b9e8a71031d9e8b52febb2041b8fc40c9d8201",
+      "instanceHash": "b546ae43877e7b5b15dba702230f4afbbaeb5d726b988901e432828498b19e7b",
       "construction": "rat2",
       "sourceDifficulty": {
         "rating": 4,
@@ -283,7 +443,7 @@
       "kind": "corpus",
       "regime": "relief",
       "pieceCount": 9,
-      "instanceHash": "08af73dcc5d42e622630d0618149fd81314afd398313a07aa9a7a9a2e9faf923",
+      "instanceHash": "0e4516ee9f95d91725b35005667013a02d0e10e06d8acb978ab1e26215f1e2ec",
       "construction": "rev2",
       "sourceDifficulty": {
         "rating": 1,
@@ -299,7 +459,7 @@
       "kind": "corpus",
       "regime": "footprint",
       "pieceCount": 9,
-      "instanceHash": "6308c5517ad6a362e2b0f9ab0269a3f6e85d2e1118ae69a6a672586d2d809522",
+      "instanceHash": "c1cb071c776421802523175ade60c251318583f7b65319ac385a6e1cf5b6ff32",
       "construction": "rev2",
       "sourceDifficulty": {
         "rating": 1,

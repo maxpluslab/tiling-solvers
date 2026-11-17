@@ -51,8 +51,9 @@ def test_one_command_reproduces_the_corpus_table(
 
     ``maxplus-bench run benchmarks/manifests/corpus.toml --no-times``
     reproduces the whole table; this runs the same manifest ``--only`` on the
-    rest and compares those rows exactly. Left out are the three footprints of a
-    million nodes, and ``rat2-flat``, where CP-SAT takes over a minute.
+    rest and compares those rows exactly. Left out are the expensive fixtures
+    (``corpus.EXPENSIVE``: three footprints of a million nodes, and Pleat), and
+    ``rat2-flat``, where CP-SAT takes over a minute.
     """
     cheap = [f for f in CORPUS if f not in corpus.EXPENSIVE_FOR_CP_SAT]
     committed = (RESULTS / "corpus.md").read_text(encoding="utf-8")
@@ -92,13 +93,19 @@ def test_the_rows_the_suite_does_not_reproduce_say_what_the_documents_say() -> N
     nodes = {(r["Solver"], r["Fixture"]): int(r["Nodes"].replace(" ", "")) for r in rows}
     for row in rows:
         assert row["Solutions"] == row["Valid"], (row["Solver"], row["Fixture"])
-    # The two production solvers finish everything but cor1-flat, stopped at the node
-    # limit before it found anything; the prototype is stopped on the largest.
-    for solver in ("`rust.contact_dfs`", "`cp_sat.placements`"):
+    # The two production solvers finish everything but cor1-flat and the Pleat footprints,
+    # stopped at the node limit; the prototype is stopped on the largest.
+    # CP-SAT is not given the Pleat footprints: it would enumerate every assembly of a
+    # listing stopped at the limit (benchmarks/manifests/corpus.toml).
+    given = {
+        "`rust.contact_dfs`": set(CORPUS),
+        "`cp_sat.placements`": set(CORPUS) - corpus.PLEAT_FLAT,
+    }
+    for solver, fixtures in given.items():
         mine = [row for row in rows if row["Solver"] == solver]
-        assert sorted(row["Fixture"] for row in mine) == sorted(CORPUS)
+        assert sorted(row["Fixture"] for row in mine) == sorted(fixtures)
         unfinished = sorted(row["Fixture"] for row in mine if row["Whole search"] == "no")
-        assert unfinished == sorted(corpus.UNFINISHED), solver
+        assert unfinished == sorted(corpus.UNFINISHED & fixtures), solver
         for fixture in unfinished:
             assert nodes[solver, fixture] == NODE_LIMIT
         # The limit is far above what any finished search needed.
@@ -117,8 +124,8 @@ def test_the_committed_table_is_the_reproducible_kind() -> None:
     header = [cell.strip() for cell in lines[0].strip("|").split("|")]
     assert header[:4] == ["Fixture", "Pieces", "Solver", "Mode"]
     assert not [title for title in header if title.endswith(", s") or "SAT" in title]
-    # 18 + 18 + 8 runs, a header and a rule.
-    assert len(lines) == 44 + 2
+    # 28 + 23 + 8 runs, a header and a rule.
+    assert len(lines) == 59 + 2
 
 
 # --- the committed manifests --------------------------------------------------------------
@@ -190,8 +197,10 @@ def test_the_tolerance_manifest_is_a_grid_in_two_tolerances() -> None:
     roofs = sorted({roof for _, roof in grid})
     assert len(scales) >= 4 and len(roofs) >= 4
     assert len(grid) == len(scales) * len(roofs)
-    # Only puzzles with roofs have a roof tolerance to vary.
-    assert {run.fixture for run in runs if "roof_tolerance_mm" in run.options} == set(RELIEF)
+    # Only puzzles with roofs have a roof tolerance to vary. The grid was measured before
+    # Pleat joined; its one assembly at 1.75 mm is in each puzzle's provenance instead.
+    roofed = {run.fixture for run in runs if "roof_tolerance_mm" in run.options}
+    assert roofed == set(RELIEF) - corpus.PLEAT
     # Geometric spacing: each step of the contact axis multiplies the tolerance.
     single = sorted({run.contact_scale for run in runs if not run.options})
     assert len(single) >= 6
@@ -201,6 +210,12 @@ def test_the_tolerance_manifest_is_a_grid_in_two_tolerances() -> None:
 # --- difficulty proxies -------------------------------------------------------------------
 
 
+def static_pair(fixture_id: str) -> tuple[proxies.StaticProxies, proxies.StaticProxies]:
+    roofed = proxies.static(PuzzleInstance.from_dict(corpus.fixture(fixture_id)))
+    flat = proxies.static(PuzzleInstance.from_dict(corpus.fixture(f"{fixture_id}-flat")))
+    return roofed, flat
+
+
 @pytest.mark.parametrize("fixture_id", RELIEF)
 def test_roofs_thin_the_edge_graph(fixture_id: str) -> None:
     """A finding the proxies can state without a search.
@@ -208,16 +223,26 @@ def test_roofs_thin_the_edge_graph(fixture_id: str) -> None:
     As footprints almost every edge could lie against almost every other; a
     roof leaves an edge a handful of mates. The polygons of a relief puzzle and
     its flat twin are the same up to rotation, so the counts of pieces and
-    edges agree.
+    edges agree. Pleat was designed against this (the next test), and its
+    roofs thin the graph 3.9 to 5 times where every other puzzle's do 6.5
+    times or more.
     """
-    roofed = proxies.static(PuzzleInstance.from_dict(corpus.fixture(fixture_id)))
-    flat = proxies.static(PuzzleInstance.from_dict(corpus.fixture(f"{fixture_id}-flat")))
+    roofed, flat = static_pair(fixture_id)
     assert (roofed.pieces, roofed.edges) == (flat.pieces, flat.edges)
-    assert roofed.mean_degree < flat.mean_degree / 4
+    assert roofed.mean_degree < flat.mean_degree / (3 if fixture_id in corpus.PLEAT else 6)
     assert flat.unique_mate_fraction == 0.0
     assert roofed.symmetry_count <= flat.symmetry_count
     # The tray is a square in both.
     assert roofed.tray_turns == flat.tray_turns == 4
+
+
+def test_pleat_roofs_leave_each_edge_many_mates() -> None:
+    """The design of Pleat, seen by the proxies: two corner heights give every edge one of
+    four height profiles, so a roof still leaves an edge many mates. Every Pleat puzzle has
+    more than twice the mean degree of any other relief puzzle (16 to 24 against at most 6.7)."""
+    degree = {f: static_pair(f)[0].mean_degree for f in RELIEF}
+    others = max(d for f, d in degree.items() if f not in corpus.PLEAT)
+    assert min(degree[f] for f in corpus.PLEAT) > 2 * others
 
 
 def test_the_proxy_table_has_a_row_for_every_corpus_puzzle() -> None:

@@ -53,16 +53,19 @@ def placed(fixture: dict[str, Any], key: dict[str, Any]) -> dict[str, list[tuple
 
 
 def test_the_corpus_is_complete() -> None:
-    """Nine constructions in two variants, and the four synthetics."""
-    constructions = ["cor1", "new1", "new2", "new3", "new4", "new5", "rat1", "rat2", "rev2"]
+    """Fourteen constructions in two variants, and the four synthetics."""
+    constructions = [
+        "cor1", "new1", "new2", "new3", "new4", "new5", "plt1", "plt2", "plt3", "plt4", "plt5",
+        "rat1", "rat2", "rev2",
+    ]  # fmt: skip
     assert sorted(CORPUS) == sorted(constructions + [f"{c}-flat" for c in constructions])
     assert sorted(SYNTHETIC) == [
         "syn-four-squares", "syn-four-triangles", "syn-two-rectangles", "syn-two-rectangles-ridge",
     ]  # fmt: skip
     counts = {entry["id"]: entry["pieceCount"] for entry in corpus.index()["fixtures"]}
     assert {c: counts[c] for c in constructions} == {
-        "cor1": 27, "new1": 16, "new2": 16, "new3": 9, "new4": 9, "new5": 6, "rat1": 11, "rat2": 20,
-        "rev2": 9,
+        "cor1": 27, "new1": 16, "new2": 16, "new3": 9, "new4": 9, "new5": 6, "plt1": 32, "plt2": 32,
+        "plt3": 32, "plt4": 32, "plt5": 24, "rat1": 11, "rat2": 20, "rev2": 9,
     }  # fmt: skip
     # Every flat twin has its relief puzzle's pieces.
     assert all(counts[f"{c}-flat"] == counts[c] for c in constructions)

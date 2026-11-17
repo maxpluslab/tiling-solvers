@@ -165,7 +165,7 @@
   },
   "source": {
     "repository": "https://github.com/maxpluslab/tropical-puzzle-lab",
-    "commit": "cfe2c8be097132aa378b2cf397b93524fb869fe1",
+    "commit": "d3153f5b6a84aab7242bad12b443687c19375691",
     "puzzleId": "new3",
     "geometryHash": "adad00a1e9896ab0c87e5fdac0eab3eb4554f56f73cda103c0558087cfd56212"
   }

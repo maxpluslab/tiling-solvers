@@ -116,9 +116,12 @@ def test_cavities_of_partial_assemblies(fixture_id: str) -> None:
             piece = instance.pieces[index]
             state.place(index, as_tuple(poses[piece.id]))
             placed.append(shapely.Polygon(piece.world_polygon(poses[piece.id])))
-        covered = shapely.union_all(placed)
-        # Shrunk a little, so that cavities meeting at a point come apart as they do in a trace.
-        left = tray.difference(covered.buffer(SHRINK_MM)).buffer(-SHRINK_MM)
+        # Each piece grown before the union, not the union grown: the same set, but GEOS 3.14
+        # unions pieces whose vertices sit 1e-7 mm off a common line (Pleat's) into a set that
+        # leaves one out, 897.75 mm2 short on plt1-flat. Shrunk back after the difference, so
+        # that cavities meeting at a point come apart as they do in a trace.
+        covered = shapely.union_all([piece.buffer(SHRINK_MM) for piece in placed])
+        left = tray.difference(covered).buffer(-SHRINK_MM)
         parts = [g for g in getattr(left, "geoms", [left]) if g.area > SHRUNK_AREA_TOL]
         has_hole = any(len(part.interiors) > 0 for part in parts)
 

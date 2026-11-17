@@ -46,11 +46,13 @@ RELIEF = corpus.fixture_ids(kind="corpus", regime="relief")
 SYNTHETIC = corpus.fixture_ids(kind="synthetic")
 # What the prototype finishes in seconds: the footprints of up to 11 pieces.
 SMALL = [f for f in FLAT if PIECES[f] <= 11]
-# Whole searches of these are a million nodes each: not run here (support/corpus.py).
+# Whole searches of these are a million nodes each, or Pleat's relief searches of
+# thousands: not run here (support/corpus.py; test_hard_relief.py reads Pleat's rows).
 LEFT_OUT = corpus.EXPENSIVE - corpus.UNFINISHED
 CHECKED = [f for f in CORPUS if f not in LEFT_OUT]
-# Relief puzzles built to be hard for this search (cor1: level creases at shared heights).
-HARD_RELIEF = {"cor1"}
+# Relief puzzles built to be hard for this search (cor1: level creases at shared heights;
+# Pleat: corners at two heights, so that edges share a few height profiles).
+HARD_RELIEF = {"cor1"} | corpus.PLEAT
 
 # Assemblies found by the whole search, up to turning the tray. Not in this table: one.
 # rat1-flat's 101 is the prototype's 404 in four orientations each (phase 4).
@@ -92,14 +94,16 @@ def same_set(a: list[Any], b: list[Any]) -> bool:
 
 
 def test_the_exit_criterion_covers_the_whole_corpus() -> None:
-    assert len(EVERY) == 18 and len(FLAT) == 8 and len(RELIEF) == 9
+    assert len(EVERY) == 28 and len(FLAT) == 8 and len(RELIEF) == 14
     assert sorted(CORPUS) == sorted(FLAT + RELIEF)
-    # Only footprints are left out, and only those named.
-    assert sorted(set(EVERY) - set(CORPUS)) == sorted(corpus.UNFINISHED) == ["cor1-flat"]
+    # Only footprints are left out as unfinished, and only those named.
+    unfinished = ["cor1-flat", *(f"plt{n}-flat" for n in range(1, 6))]
+    assert sorted(set(EVERY) - set(CORPUS)) == sorted(corpus.UNFINISHED) == unfinished
     assert set(RELIEF) >= HARD_RELIEF
     assert sorted(SMALL) == ["new3-flat", "new4-flat", "new5-flat", "rat1-flat", "rev2-flat"]
-    assert sorted(LEFT_OUT) == ["new1-flat", "new2-flat"]
-    assert set(CHECKED) >= set(RELIEF) | set(ASSEMBLIES)
+    # Left out as expensive: two footprints, and Pleat in relief.
+    assert sorted(LEFT_OUT) == ["new1-flat", "new2-flat", *(f"plt{n}" for n in range(1, 6))]
+    assert set(CHECKED) >= (set(RELIEF) - corpus.PLEAT) | set(ASSEMBLIES)
 
 
 # --- the exit criterion -------------------------------------------------------------------
