@@ -23,7 +23,7 @@ uv run maxplus-bench run benchmarks/manifests/corpus.toml --no-times        # be
 uv run maxplus-bench run benchmarks/manifests/edge_to_edge.toml --no-times  # benchmarks/results/edge_to_edge.md
 ```
 
-Each takes several minutes, most of it on the footprints that run to the node limit. The committed tables hold statuses and counts only, which a deterministic solver reproduces exactly, and the test suite compares every row it can afford to rerun. [docs/experiments.md](docs/experiments.md) has the other experiments (tolerance, heuristics, difficulty proxies) and what they found.
+Each took about half an hour on a laptop, most of it on the footprints that run to the node limit. The committed tables hold statuses and counts only, which a deterministic solver reproduces exactly, and the test suite compares every row it can afford to rerun. [docs/experiments.md](docs/experiments.md) has the other experiments (tolerance, heuristics, difficulty proxies) and what they found.
 
 ## What we've learned so far
 
