@@ -1,7 +1,8 @@
 """Figures from benchmark records. Needs matplotlib, the ``analysis`` extra.
 
-Each function takes records as :func:`benchmark.read` returns them and gives
-back a matplotlib figure; nothing is shown or saved unless asked. The figures
+Each function takes records as :func:`benchmark.read` returns them, or for
+:func:`regimes_at_a_glance` the rows of committed tables, and gives back a
+matplotlib figure; nothing is shown or saved unless asked. The figures
 are drawn off-screen, so they can be made on a machine without a display.
 """
 
@@ -9,6 +10,7 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
+from matplotlib import rc_context
 from matplotlib.figure import Figure
 
 
@@ -76,7 +78,122 @@ def proxy_against_cost(
     return figure
 
 
+GLANCE_SOLVER = "rust.contact_dfs"
+
+# The series of the figure below, in drawing order: label, marker, filled, colour.
+# The colour is the regime, the marker the assumption.
+FLAT, RELIEF = "tab:red", "tab:blue"
+# Within a construction's row, flat points sit a little below the line and relief points
+# a little above it, so that equal counts in the two regimes do not hide each other.
+ROW_OFFSET = {FLAT: 0.15, RELIEF: -0.15}
+GLANCE_SERIES = (
+    ("flat, assuming nothing", "o", True, FLAT),
+    ("flat, stopped at the node limit (a lower bound)", ">", False, FLAT),
+    ("flat, assuming edge to edge", "D", True, FLAT),
+    ("relief, assuming nothing", "s", True, RELIEF),
+    ("relief, assuming edge to edge", "D", True, RELIEF),
+)
+FLAT_NOTHING, FLAT_STOPPED, FLAT_E2E, RELIEF_NOTHING, RELIEF_E2E = (
+    label for label, *_ in GLANCE_SERIES
+)
+
+
+def _glance_points(
+    corpus_rows: Sequence[Mapping[str, str]], e2e_rows: Sequence[Mapping[str, str]]
+) -> tuple[list[tuple[str, int]], dict[str, dict[str, int]]]:
+    """Constructions with their piece counts, and nodes by series and construction."""
+
+    def need(row: Mapping[str, str], *columns: str) -> None:
+        missing = [c for c in columns if c not in row]
+        if missing:
+            raise ValueError(f"table row lacks the columns {missing}")
+
+    def nodes(text: str) -> int:
+        return int(text.replace(" ", ""))
+
+    solver = f"`{GLANCE_SOLVER}`"
+    pieces: dict[str, int] = {}
+    series: dict[str, dict[str, int]] = {label: {} for label, *_ in GLANCE_SERIES}
+    for row in corpus_rows:
+        need(row, "Fixture", "Pieces", "Solver", "Mode", "Whole search", "Nodes")
+        if row["Solver"] != solver:
+            continue
+        construction = row["Fixture"].strip("`").removesuffix("-flat")
+        pieces[construction] = int(row["Pieces"])
+        if row["Mode"] == "relief":
+            label = RELIEF_NOTHING
+        elif row["Whole search"] == "yes":
+            label = FLAT_NOTHING
+        else:
+            label = FLAT_STOPPED
+        series[label][construction] = nodes(row["Nodes"])
+    for row in e2e_rows:
+        need(row, "Fixture", "Solver", "Mode", "assumes", "equal_edges", "wall_edges", "Nodes")
+        chosen = (row["Solver"], row["Mode"], row["assumes"], row["equal_edges"], row["wall_edges"])
+        if chosen[0] != solver or chosen[2:] != ("edge-to-edge", "true", "true"):
+            continue
+        construction = row["Fixture"].strip("`").removesuffix("-flat")
+        label = RELIEF_E2E if row["Mode"] == "relief" else FLAT_E2E
+        series[label][construction] = nodes(row["Nodes"])
+    order = sorted(pieces.items(), key=lambda item: (item[1], item[0]))
+    return order, series
+
+
+def regimes_at_a_glance(
+    corpus_rows: Sequence[Mapping[str, str]], e2e_rows: Sequence[Mapping[str, str]]
+) -> Figure:
+    """Whole-search nodes per construction, flat and with roofs, assuming nothing or edge to edge.
+
+    Takes the rows of the committed tables ``benchmarks/results/corpus.md`` and
+    ``edge_to_edge.md`` as :func:`report.parse_markdown` reads them, so it needs no
+    search. Only ``rust.contact_dfs`` is drawn, and under the assumption only with both
+    of its rules on. Colour is the regime, a diamond the assumption.
+    A flat search stopped at the node limit is drawn as an open arrow at the limit:
+    the true count is larger.
+    """
+    order, series = _glance_points(corpus_rows, e2e_rows)
+    figure = Figure(figsize=(7.0, 0.32 * len(order) + 1.6), layout="constrained")
+    axes = figure.add_subplot()
+    axes.set_title("Search effort: roofs, and the edge-to-edge assumption", fontsize="medium")
+    axes.set_xlabel(f"search-tree nodes of the whole search ({GLANCE_SOLVER}), log scale")
+    rows = {construction: index for index, (construction, _) in enumerate(order)}
+    axes.set_yticks(
+        range(len(order)), [f"{construction} ({count})" for construction, count in order]
+    )
+    for construction, index in rows.items():
+        values = [points[construction] for points in series.values() if construction in points]
+        if values:
+            axes.plot([min(values), max(values)], [index, index], color="0.85", zorder=1)
+    for label, marker, filled, color in GLANCE_SERIES:
+        points = series[label]
+        if not points:
+            continue
+        axes.scatter(
+            [points[c] for c in points],
+            [rows[c] + ROW_OFFSET[color] for c in points],
+            marker=marker,
+            s=30 if marker == "D" else 36,
+            label=label,
+            facecolors=color if filled else "none",
+            edgecolors=color,
+            zorder=2,
+        )
+    axes.set_xscale("log")
+    axes.invert_yaxis()
+    axes.set_ylabel("construction (pieces)")
+    axes.grid(axis="x", color="0.92")
+    axes.legend(fontsize="x-small", loc="upper right")
+    return figure
+
+
 def save(figure: Figure, path: Path) -> None:
-    """Write a figure to a file; the suffix chooses the format."""
+    """Write a figure to a file; the suffix chooses the format.
+
+    An SVG carries no date and a fixed id salt, so the same figure is the same file.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
-    figure.savefig(path, dpi=150)
+    if path.suffix == ".svg":
+        with rc_context({"svg.hashsalt": "maxplus-solvers"}):
+            figure.savefig(path, metadata={"Date": None})
+    else:
+        figure.savefig(path, dpi=150)

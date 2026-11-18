@@ -112,6 +112,34 @@ def markdown(cells: Sequence[Sequence[str]]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def parse_markdown(text: str) -> list[dict[str, str]]:
+    """A table written by :func:`markdown`, read back: one dict per body row, by header.
+
+    Cells are stripped and otherwise kept as written (backticks, spaced
+    thousands). A table without its rule, or with a row of the wrong width,
+    is refused, so that a damaged file is not read as a shorter table.
+    """
+
+    def cells(line: str) -> list[str]:
+        line = line.strip()
+        if not (line.startswith("|") and line.endswith("|")):
+            raise ValueError(f"not a table row: {line!r}")
+        return [cell.strip() for cell in line[1:-1].split("|")]
+
+    lines = [line for line in text.splitlines() if line.strip()]
+    if len(lines) < 2:
+        raise ValueError("a table needs a header and a rule")
+    header, rule, *body = (cells(line) for line in lines)
+    if len(rule) != len(header) or any(set(cell) - {"-", ":"} or not cell for cell in rule):
+        raise ValueError("the second line of a table must be its rule")
+    rows: list[dict[str, str]] = []
+    for number, row in enumerate(body, start=3):
+        if len(row) != len(header):
+            raise ValueError(f"line {number} has {len(row)} cells, the header {len(header)}")
+        rows.append(dict(zip(header, row, strict=True)))
+    return rows
+
+
 def table(records: Sequence[Mapping[str, Any]], *, times: bool = True) -> str:
     """The results table of an experiment, as Markdown."""
     return markdown(rows(records, times=times))

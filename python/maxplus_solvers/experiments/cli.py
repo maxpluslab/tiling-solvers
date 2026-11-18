@@ -3,7 +3,8 @@
 ``maxplus-bench run MANIFEST`` runs every run the manifest names, writes one
 JSON line per run and prints the results table. ``maxplus-bench table FILE``
 prints the table of a results file again. ``maxplus-bench proxies`` prints the
-difficulty proxies of the corpus beside the source's rating.
+difficulty proxies of the corpus beside the source's rating. ``maxplus-bench
+figure`` draws the committed tables as one figure (the ``analysis`` extra).
 """
 
 import argparse
@@ -18,6 +19,7 @@ from maxplus_solvers.io.instance import load_instance
 
 DEFAULT_FIXTURES = Path("benchmarks") / "fixtures"
 DEFAULT_RESULTS = Path("benchmarks") / "results"
+DEFAULT_FIGURE = Path("docs") / "figures" / "at-a-glance.svg"
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -60,7 +62,28 @@ def _parser() -> argparse.ArgumentParser:
     prox.add_argument(
         "--solver", default="rust.contact_dfs", help="whose records to read from --results"
     )
+
+    fig = commands.add_parser(
+        "figure", help="draw the committed corpus and edge-to-edge tables as one figure"
+    )
+    fig.add_argument(
+        "--results",
+        type=Path,
+        default=DEFAULT_RESULTS,
+        help="where corpus.md and edge_to_edge.md are",
+    )
+    fig.add_argument("--out", type=Path, default=DEFAULT_FIGURE, help="the file to write")
     return parser
+
+
+def glance_figure(results: Path, out: Path) -> None:
+    """Draw ``corpus.md`` and ``edge_to_edge.md`` from ``results`` into ``out``."""
+    # Imported here: every other command runs without the plotting stack.
+    from maxplus_solvers.experiments import plotting
+
+    corpus = report.parse_markdown((results / "corpus.md").read_text(encoding="utf-8"))
+    e2e = report.parse_markdown((results / "edge_to_edge.md").read_text(encoding="utf-8"))
+    plotting.save(plotting.regimes_at_a_glance(corpus, e2e), out)
 
 
 def _progress(record: Mapping[str, Any]) -> None:
@@ -178,6 +201,13 @@ def main(argv: Sequence[str] | None = None) -> int:
                 args.table.write_text(text, encoding="utf-8", newline="\n")
             print(text, end="")
             return 1 if any(record["status"] == "error" for record in records) else 0
+        if args.command == "figure":
+            try:
+                glance_figure(args.results, args.out)
+            except ValueError as error:  # a committed table that cannot be read
+                parser.error(str(error))
+            print(args.out)
+            return 0
         if args.command == "table":
             print(report.table(benchmark.read(args.results), times=not args.no_times), end="")
             return 0

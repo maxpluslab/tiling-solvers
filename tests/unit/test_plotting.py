@@ -80,6 +80,90 @@ def test_a_proxy_is_drawn_against_a_cost_for_the_fixtures_that_have_both() -> No
     assert (axes.get_xlabel(), axes.get_ylabel()) == ("mean_degree", "nodes")
 
 
+# --- the figure at a glance, from rows of the committed tables ----------------------------
+
+
+def corpus_row(fixture: str, pieces: int, mode: str, whole: str, nodes: str) -> dict[str, str]:
+    return {
+        "Fixture": f"`{fixture}`",
+        "Pieces": str(pieces),
+        "Solver": "`rust.contact_dfs`",
+        "Mode": mode,
+        "Whole search": whole,
+        "Nodes": nodes,
+    }
+
+
+def e2e_row(fixture: str, mode: str, equal: str, wall: str, nodes: str) -> dict[str, str]:
+    return {
+        "Fixture": f"`{fixture}`",
+        "Solver": "`rust.contact_dfs`",
+        "Mode": mode,
+        "assumes": "edge-to-edge",
+        "equal_edges": equal,
+        "wall_edges": wall,
+        "Nodes": nodes,
+    }
+
+
+# Rows in the shape report.parse_markdown gives: one construction whose flat search
+# ended, one stopped at the limit, and rows the figure must ignore.
+CORPUS_ROWS = [
+    corpus_row("a", 4, "relief", "yes", "12"),
+    corpus_row("a-flat", 4, "footprint", "yes", "1 234"),
+    corpus_row("b", 9, "relief", "yes", "300"),
+    corpus_row("b-flat", 9, "footprint", "no", "1 500 000"),
+    {**corpus_row("a-flat", 4, "footprint", "yes", "7"), "Solver": "`cp_sat.placements`"},
+]
+E2E_ROWS = [
+    e2e_row("a-flat", "footprint", "true", "true", "20"),
+    e2e_row("a-flat", "footprint", "false", "true", "99"),  # one rule off: not drawn
+    e2e_row("b-flat", "footprint", "true", "true", "5 000"),
+    e2e_row("b", "relief", "true", "true", "77"),
+    e2e_row("b", "relief", "true", "false", "88"),  # one rule off: not drawn
+]
+
+
+def test_the_glance_draws_each_construction_in_its_three_regimes() -> None:
+    (axes,) = plotting.regimes_at_a_glance(CORPUS_ROWS, E2E_ROWS).axes
+    series = {str(c.get_label()): values(c.get_offsets()) for c in axes.collections}
+    # Rows go by pieces: a (4 pieces) at y 0, b (9) at y 1. Flat points sit 0.15 below
+    # the row (larger y, the axis is inverted), relief 0.15 above. Values from the rows above.
+    expected = {
+        "flat, assuming nothing": [[1234, 0.15]],
+        "flat, stopped at the node limit (a lower bound)": [[1_500_000, 1.15]],
+        "flat, assuming edge to edge": [[20, 0.15], [5000, 1.15]],
+        "relief, assuming nothing": [[12, -0.15], [300, 0.85]],
+        "relief, assuming edge to edge": [[77, 0.85]],
+    }
+    assert sorted(series) == sorted(expected)
+    for label, points in expected.items():
+        assert series[label] == [pytest.approx(p, abs=1e-12) for p in points], label
+    assert [label.get_text() for label in axes.get_yticklabels()] == ["a (4)", "b (9)"]
+    assert axes.get_xscale() == "log"
+
+
+def test_a_stopped_search_is_an_open_marker() -> None:
+    (axes,) = plotting.regimes_at_a_glance(CORPUS_ROWS, E2E_ROWS).axes
+    stopped = next(c for c in axes.collections if "lower bound" in str(c.get_label()))
+    assert len(stopped.get_facecolor()) == 0  # facecolors "none"
+    assert len(stopped.get_edgecolor()) == 1
+
+
+def test_the_glance_refuses_a_table_without_its_columns() -> None:
+    broken = [{k: v for k, v in CORPUS_ROWS[0].items() if k != "Whole search"}]
+    with pytest.raises(ValueError, match="Whole search"):
+        plotting.regimes_at_a_glance(broken, E2E_ROWS)
+
+
+def test_an_svg_is_the_same_file_when_drawn_twice(tmp_path: Path) -> None:
+    first, second = tmp_path / "1.svg", tmp_path / "2.svg"
+    plotting.save(plotting.regimes_at_a_glance(CORPUS_ROWS, E2E_ROWS), first)
+    plotting.save(plotting.regimes_at_a_glance(CORPUS_ROWS, E2E_ROWS), second)
+    assert first.read_bytes() == second.read_bytes()
+    assert b"<dc:date>" not in first.read_bytes()
+
+
 @pytest.mark.parametrize("suffix", [".png", ".svg"])
 def test_a_figure_is_saved_where_asked(tmp_path: Path, suffix: str) -> None:
     path = tmp_path / "figures" / f"nodes{suffix}"
